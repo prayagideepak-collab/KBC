@@ -77,9 +77,10 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val userProfile by viewModel.userProfile.collectAsState()
-    val language by viewModel.preferredLanguage.collectAsState()
+    val language by viewModel.languageMode.collectAsState()
     val isSoundMuted by viewModel.isSoundMuted.collectAsState()
-    val isHi = language == "hi"
+    val mode = language.uppercase()
+    val isHi = mode == "HINDI" || mode == "HI"
 
     Surface(
         modifier = modifier

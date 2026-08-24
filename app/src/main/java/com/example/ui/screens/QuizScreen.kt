@@ -117,8 +117,9 @@ fun QuizScreen(
     viewModel: QuizViewModel,
     modifier: Modifier = Modifier
 ) {
-    val language by viewModel.preferredLanguage.collectAsState()
-    val isHi = language == "hi"
+    val language by viewModel.languageMode.collectAsState()
+    val mode = language.uppercase()
+    val isHi = mode == "HINDI" || mode == "HI"
     val userProfile by viewModel.userProfile.collectAsState()
     val isVoiceEnabled by viewModel.isVoiceNarrationEnabled.collectAsState()
 

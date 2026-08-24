@@ -34,17 +34,27 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
+    private fun getLocaleForMode(mode: String): Locale {
+        val m = mode.uppercase()
+        return if (m == "ENGLISH" || m == "EN") Locale.US else Locale("hi", "IN")
+    }
+
+    private fun isEnglishMode(mode: String): Boolean {
+        val m = mode.uppercase()
+        return m == "ENGLISH" || m == "EN"
+    }
+
     /**
      * Reads the question with a strict 5.0-second hard ceiling.
      * Calculates dynamic speech rate based on word count so full question is narrated within <= 5 sec.
      * A hard timeout forcibly stops TTS after 5.0 seconds.
      */
-    fun speakQuestionBounded(text: String, lang: String = "hi", maxDurationSec: Float = 5.0f) {
+    fun speakQuestionBounded(text: String, languageMode: String = "HINDI", maxDurationSec: Float = 5.0f) {
         if (!isReady || tts == null) return
         stop()
 
         try {
-            val locale = if (lang == "hi") Locale("hi", "IN") else Locale.US
+            val locale = getLocaleForMode(languageMode)
             tts?.language = locale
 
             // Calculate dynamic speech rate
@@ -74,10 +84,10 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
     /**
      * Reads option within active game timer. Does not stop or pause game timer.
      */
-    fun speakOptionInGameTimer(text: String, lang: String = "hi") {
+    fun speakOptionInGameTimer(text: String, languageMode: String = "HINDI") {
         if (!isReady || tts == null) return
         try {
-            val locale = if (lang == "hi") Locale("hi", "IN") else Locale.US
+            val locale = getLocaleForMode(languageMode)
             tts?.language = locale
             tts?.setSpeechRate(1.25f)
             val utteranceId = "Tark_Opt_${System.currentTimeMillis()}"
@@ -87,23 +97,24 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
 
     /**
      * Announces result with user's authoritative profile name.
-     * e.g. "Deepak, आपका जवाब सही है।" or "Deepak, आपका जवाब गलत है।"
+     * e.g. "Deepak, आपका जवाब सही है।" or "Deepak, your answer is correct."
      */
-    fun speakResultAnnouncement(userName: String, isCorrect: Boolean, lang: String = "hi") {
+    fun speakResultAnnouncement(userName: String, isCorrect: Boolean, languageMode: String = "HINDI") {
         if (!isReady || tts == null) return
         stop()
 
         try {
-            val locale = if (lang == "hi") Locale("hi", "IN") else Locale.US
+            val locale = getLocaleForMode(languageMode)
             tts?.language = locale
             tts?.setSpeechRate(1.08f)
             tts?.setPitch(1.0f)
 
-            val cleanName = userName.ifBlank { if (lang == "hi") "खिलाड़ी" else "Player" }
+            val isEn = isEnglishMode(languageMode)
+            val cleanName = userName.ifBlank { if (isEn) "Player" else "खिलाड़ी" }
             val announcement = if (isCorrect) {
-                if (lang == "hi") "$cleanName, आपका जवाब सही है।" else "$cleanName, your answer is correct."
+                if (isEn) "$cleanName, your answer is correct." else "$cleanName, आपका जवाब सही है।"
             } else {
-                if (lang == "hi") "$cleanName, आपका जवाब गलत है।" else "$cleanName, your answer is incorrect."
+                if (isEn) "$cleanName, your answer is incorrect." else "$cleanName, आपका जवाब गलत है।"
             }
 
             val utteranceId = "Tark_Result_${System.currentTimeMillis()}"
@@ -115,12 +126,12 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
      * Wrong Answer Educational Solution Narration.
      * Operates at a natural, teacher-guided pace without speed limits or pressure.
      */
-    fun speakSolutionNatural(text: String, lang: String = "hi") {
+    fun speakSolutionNatural(text: String, languageMode: String = "HINDI") {
         if (!isReady || tts == null) return
         stop()
 
         try {
-            val locale = if (lang == "hi") Locale("hi", "IN") else Locale.US
+            val locale = getLocaleForMode(languageMode)
             tts?.language = locale
             tts?.setSpeechRate(0.96f)
             tts?.setPitch(1.02f)

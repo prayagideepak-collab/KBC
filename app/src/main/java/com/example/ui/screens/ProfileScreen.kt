@@ -99,7 +99,7 @@ fun ProfileScreen(
     var name by remember(currentProfile) { mutableStateOf(currentProfile.name) }
     var selectedState by remember(currentProfile) { mutableStateOf(currentProfile.state) }
     var selectedLanguage by remember(currentProfile) { 
-        val lang = currentProfile.preferredLanguage.uppercase()
+        val lang = currentProfile.languageMode.uppercase()
         mutableStateOf(if (lang in listOf("HINDI", "ENGLISH", "BILINGUAL")) lang else "HINDI")
     }
     var upiId by remember(currentProfile) { mutableStateOf<String>(currentProfile.upiId) }
@@ -901,7 +901,7 @@ fun ProfileScreen(
                         preparationDomain = finalDomain,
                         studentClass = finalClass,
                         isStudentMode = isJuniorMode,
-                        preferredLanguage = selectedLanguage,
+                        languageMode = selectedLanguage,
                         upiId = upiId,
                         interests = selectedInterests.toList()
                     )

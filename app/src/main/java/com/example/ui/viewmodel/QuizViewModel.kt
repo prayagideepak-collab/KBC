@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -147,8 +148,11 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<QuizUiState>(QuizUiState.HomeScreen)
     val uiState: StateFlow<QuizUiState> = _uiState.asStateFlow()
 
-    private val _preferredLanguage = MutableStateFlow("hi") // "hi" or "en"
-    val preferredLanguage: StateFlow<String> = _preferredLanguage.asStateFlow()
+    val languageMode: StateFlow<String> = userProfile.map { it.languageMode.uppercase() }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "HINDI"
+    )
 
     private var timerJob: Job? = null
     private var readOnlyJob: Job? = null
@@ -198,11 +202,22 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleLanguage() {
-        _preferredLanguage.value = if (_preferredLanguage.value == "hi") "en" else "hi"
+        val current = languageMode.value.uppercase()
+        val next = when (current) {
+            "HINDI" -> "ENGLISH"
+            "ENGLISH" -> "BILINGUAL"
+            else -> "HINDI"
+        }
+        setLanguage(next)
     }
 
     fun setLanguage(lang: String) {
-        _preferredLanguage.value = lang
+        viewModelScope.launch {
+            val current = userProfile.value
+            val normalized = lang.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" }
+            val updated = current.copy(languageMode = normalized)
+            repository.saveUserProfile(updated)
+        }
     }
 
     fun navigateToHome() {
@@ -351,9 +366,13 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
         // Read question immediately with strict 10.0-second hard ceiling
         if (_isVoiceNarrationEnabled.value) {
-            val lang = _preferredLanguage.value
-            val qText = if (lang == "hi") question.questionHindi else question.questionEnglish
-            speechNarrator.speakQuestionBounded(qText, lang, maxDurationSec = 10.0f)
+            val langMode = languageMode.value
+            val qText = when (langMode) {
+                "ENGLISH" -> question.questionEnglish
+                "BILINGUAL" -> "${question.questionHindi}\n${question.questionEnglish}"
+                else -> question.questionHindi
+            }
+            speechNarrator.speakQuestionBounded(qText, langMode, maxDurationSec = 10.0f)
         }
 
         // Start 10-second Read Only Session window before showing options and starting main timer
@@ -470,13 +489,21 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         val state = _uiState.value
         if (state is QuizUiState.InGame && state.isFreeHintAvailable) {
             currentSessionHintsUsed++
-            val lang = _preferredLanguage.value
-            val hintText = if (lang == "hi") {
-                if (state.question.hintHindi.isNotBlank()) state.question.hintHindi
-                else state.question.cluesHindi.firstOrNull() ?: "तार्किक बाधाओं और मुख्य संबंधों का परीक्षण करें।"
-            } else {
-                if (state.question.hintEnglish.isNotBlank()) state.question.hintEnglish
-                else state.question.cluesEnglish.firstOrNull() ?: "Analyze the deductive constraints and intermediate relations."
+            val langMode = languageMode.value
+            val hintText = when (langMode) {
+                "ENGLISH" -> {
+                    if (state.question.hintEnglish.isNotBlank()) state.question.hintEnglish
+                    else state.question.cluesEnglish.firstOrNull() ?: "Analyze the deductive constraints and intermediate relations."
+                }
+                "BILINGUAL" -> {
+                    val h = if (state.question.hintHindi.isNotBlank()) state.question.hintHindi else state.question.cluesHindi.firstOrNull() ?: "तार्किक बाधाओं का परीक्षण करें।"
+                    val e = if (state.question.hintEnglish.isNotBlank()) state.question.hintEnglish else state.question.cluesEnglish.firstOrNull() ?: "Analyze deductive constraints."
+                    "$h\n$e"
+                }
+                else -> {
+                    if (state.question.hintHindi.isNotBlank()) state.question.hintHindi
+                    else state.question.cluesHindi.firstOrNull() ?: "तार्किक बाधाओं और मुख्य संबंधों का परीक्षण करें।"
+                }
             }
             _uiState.value = state.copy(
                 isFreeHintVisible = true,
@@ -627,7 +654,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
             if (_isVoiceNarrationEnabled.value) {
                 val userName = userProfile.value.name
-                speechNarrator.speakResultAnnouncement(userName, isCorrect = true, lang = _preferredLanguage.value)
+                speechNarrator.speakResultAnnouncement(userName, isCorrect = true, languageMode.value)
             }
 
             viewModelScope.launch {
@@ -672,7 +699,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
             if (_isVoiceNarrationEnabled.value) {
                 val userName = userProfile.value.name
-                speechNarrator.speakResultAnnouncement(userName, isCorrect = false, lang = _preferredLanguage.value)
+                speechNarrator.speakResultAnnouncement(userName, isCorrect = false, languageMode.value)
             }
 
             viewModelScope.launch {
@@ -819,7 +846,12 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             currentSessionLifelinesUsed++
 
             val discards = state.question.fiftyFiftyDiscardIndices.toSet()
-            val proof = if (_preferredLanguage.value == "hi") state.question.fiftyFiftyProofHindi else state.question.fiftyFiftyProofEnglish
+            val langMode = languageMode.value
+            val proof = when (langMode) {
+                "ENGLISH" -> state.question.fiftyFiftyProofEnglish
+                "BILINGUAL" -> "${state.question.fiftyFiftyProofHindi}\n${state.question.fiftyFiftyProofEnglish}"
+                else -> state.question.fiftyFiftyProofHindi
+            }
 
             val updatedLifelines = state.lifelineState.copy(
                 is5050Available = false,
@@ -865,8 +897,12 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 isExpertExhausted = true
             )
 
-            val lang = _preferredLanguage.value
-            val fallback = if (lang == "hi") state.question.expertAdviceHindi else state.question.expertAdviceEnglish
+            val langMode = languageMode.value
+            val fallback = when (langMode) {
+                "ENGLISH" -> state.question.expertAdviceEnglish
+                "BILINGUAL" -> "${state.question.expertAdviceHindi}\n${state.question.expertAdviceEnglish}"
+                else -> state.question.expertAdviceHindi
+            }
             val (bonusActive, adjustedTime) = cancelBonusOnLifelineUsage(state)
 
             _uiState.value = state.copy(
@@ -998,9 +1034,13 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     fun speakCurrentQuestionBounded() {
         val state = _uiState.value
         if (state is QuizUiState.InGame) {
-            val lang = _preferredLanguage.value
-            val qText = if (lang == "hi") state.question.questionHindi else state.question.questionEnglish
-            speechNarrator.speakQuestionBounded(qText, lang, maxDurationSec = 5.0f)
+            val langMode = languageMode.value
+            val qText = when (langMode) {
+                "ENGLISH" -> state.question.questionEnglish
+                "BILINGUAL" -> "${state.question.questionHindi}\n${state.question.questionEnglish}"
+                else -> state.question.questionHindi
+            }
+            speechNarrator.speakQuestionBounded(qText, langMode, maxDurationSec = 5.0f)
         }
     }
 
@@ -1011,10 +1051,11 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     fun readOptionsInGameTimer() {
         val state = _uiState.value
         if (state is QuizUiState.InGame && state.phase == QuestionPhase.ACTIVE_CHOICE && !state.isLockedIn) {
-            val lang = _preferredLanguage.value
-            val opts = if (lang == "hi") state.question.optionsHindi else state.question.optionsEnglish
-            val text = opts.mapIndexed { i, opt -> "विकल्प ${('A' + i)}: $opt" }.joinToString(". ")
-            speechNarrator.speakOptionInGameTimer(text, lang)
+            val langMode = languageMode.value
+            val opts = if (langMode == "ENGLISH") state.question.optionsEnglish else state.question.optionsHindi
+            val prefix = if (langMode == "ENGLISH") "Option" else "विकल्प"
+            val text = opts.mapIndexed { i, opt -> "$prefix ${('A' + i)}: $opt" }.joinToString(". ")
+            speechNarrator.speakOptionInGameTimer(text, langMode)
         }
     }
 

@@ -64,7 +64,7 @@ class TarkRepository(
             name = profile.name,
             age = profile.age,
             state = profile.state,
-            languageMode = profile.preferredLanguage.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" },
+            languageMode = profile.languageMode.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" },
             upiId = profile.upiId,
             educationLevel = profile.educationLevel,
             occupation = if (isStudent) "Student" else profile.occupation,
@@ -203,10 +203,10 @@ class TarkRepository(
         questionText: String,
         clues: List<String>,
         options: List<String>,
-        preferredLanguage: String,
+        languageMode: String,
         fallbackAdvice: String
     ): String = withContext(Dispatchers.IO) {
-        val aiClue = geminiApiClient.getLiveExpertClue(questionText, clues, options, preferredLanguage)
+        val aiClue = geminiApiClient.getLiveExpertClue(questionText, clues, options, languageMode)
         aiClue ?: fallbackAdvice
     }
 
@@ -238,7 +238,7 @@ class TarkRepository(
             name = currentProfile.name,
             age = currentProfile.age,
             state = currentProfile.state,
-            languageMode = currentProfile.preferredLanguage.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" },
+            languageMode = currentProfile.languageMode.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" },
             upiId = currentProfile.upiId,
             educationLevel = currentProfile.educationLevel,
             occupation = currentProfile.occupation,
@@ -357,7 +357,7 @@ class TarkRepository(
             name = entity.name,
             age = entity.age,
             state = entity.state,
-            preferredLanguage = entity.languageMode.lowercase(),
+            languageMode = entity.languageMode.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" },
             upiId = entity.upiId ?: "",
             educationLevel = entity.educationLevel,
             occupation = entity.occupation,

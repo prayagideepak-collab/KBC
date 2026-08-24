@@ -130,8 +130,9 @@ fun BilingualQuestionCard(
     preferredLanguage: String,
     modifier: Modifier = Modifier
 ) {
-    val isHi = preferredLanguage == "hi"
-    val isEn = preferredLanguage == "en"
+    val mode = preferredLanguage.uppercase()
+    val isHi = mode == "HINDI" || mode == "HI"
+    val isEn = mode == "ENGLISH" || mode == "EN"
     val pairedLines = pairBilingualLines(questionHindi, questionEnglish)
 
     Card(
@@ -219,7 +220,9 @@ fun BilingualCluesList(
     preferredLanguage: String,
     onToggleVerify: (Int) -> Unit
 ) {
-    val isHi = preferredLanguage == "hi"
+    val mode = preferredLanguage.uppercase()
+    val isHi = mode == "HINDI" || mode == "HI"
+    val isEn = mode == "ENGLISH" || mode == "EN"
     val count = maxOf(cluesHindi.size, cluesEnglish.size)
     if (count == 0) return
 
@@ -445,7 +448,9 @@ fun BilingualOptionGridCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isHi = preferredLanguage == "hi"
+    val mode = preferredLanguage.uppercase()
+    val isHi = mode == "HINDI" || mode == "HI"
+    val isEn = mode == "ENGLISH" || mode == "EN"
 
     val targetBgColor = when {
         isDiscarded -> NavyDeepest.copy(alpha = 0.35f)
@@ -549,7 +554,7 @@ fun BilingualOptionGridCard(
                             textDecoration = if (isDiscarded) TextDecoration.LineThrough else TextDecoration.None
                         )
                     )
-                } else if (preferredLanguage == "en") {
+                } else if (isEn) {
                     // English selected -> English only. Zero Hindi.
                     Text(
                         text = optionEnglish,
@@ -600,7 +605,9 @@ fun BilingualHintCard(
     preferredLanguage: String,
     modifier: Modifier = Modifier
 ) {
-    val isHi = preferredLanguage == "hi"
+    val mode = preferredLanguage.uppercase()
+    val isHi = mode == "HINDI" || mode == "HI"
+    val isEn = mode == "ENGLISH" || mode == "EN"
     val hHint = hintHindi.ifBlank { "दिए गए तथ्यों और संबंधों को क्रमवार देखें।" }.toDevanagariNumerals()
     val eHint = hintEnglish.ifBlank { "Analyze the given facts and intermediate relations in sequence." }.toArabicNumerals()
 
@@ -621,16 +628,7 @@ fun BilingualHintCard(
                     lineHeight = 20.sp
                 )
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = eHint,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = InfoCyan.copy(alpha = 0.85f),
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp
-                )
-            )
-        } else {
+        } else if (isEn) {
             Text(
                 text = eHint,
                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -640,11 +638,21 @@ fun BilingualHintCard(
                     lineHeight = 20.sp
                 )
             )
-            Spacer(modifier = Modifier.height(6.dp))
+        } else {
             Text(
                 text = hHint,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = eHint,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = GoldGlow.copy(alpha = 0.85f),
+                    color = InfoCyan.copy(alpha = 0.85f),
                     fontSize = 12.sp,
                     lineHeight = 17.sp
                 )

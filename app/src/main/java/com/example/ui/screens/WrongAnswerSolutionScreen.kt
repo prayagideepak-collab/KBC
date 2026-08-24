@@ -89,8 +89,9 @@ fun WrongAnswerSolutionScreen(
     onContinue: () -> Unit
 ) {
     val profile by viewModel.userProfile.collectAsState()
-    val language by viewModel.preferredLanguage.collectAsState()
-    val isHi = language == "hi"
+    val language by viewModel.languageMode.collectAsState()
+    val mode = language.uppercase()
+    val isHi = mode == "HINDI" || mode == "HI"
 
     val uiState by viewModel.uiState.collectAsState()
     val lifelineState = (uiState as? com.example.ui.viewmodel.QuizUiState.InGame)?.lifelineState

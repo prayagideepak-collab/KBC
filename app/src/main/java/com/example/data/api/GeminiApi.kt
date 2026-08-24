@@ -273,7 +273,7 @@ class GeminiApiClient {
         questionText: String,
         clues: List<String>,
         options: List<String>,
-        preferredLanguage: String
+        languageMode: String
     ): String? = withContext(Dispatchers.IO) {
         val apiKey = try {
             BuildConfig.GEMINI_API_KEY
@@ -286,7 +286,11 @@ class GeminiApiClient {
         }
 
         try {
-            val langInstruction = if (preferredLanguage == "hi") "Respond in Hindi" else "Respond in English"
+            val langInstruction = when (languageMode.uppercase()) {
+                "HINDI" -> "Respond in Hindi"
+                "ENGLISH" -> "Respond in English"
+                else -> "Respond in both Hindi and English (Bilingual)"
+            }
             val prompt = """
                 You are 'Tark Guru' (The Reasoning Master Expert).
                 A user is facing a pure logic deduction question.
