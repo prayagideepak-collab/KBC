@@ -80,3 +80,37 @@ interface CurrentAffairsDao {
     @Query("UPDATE current_affairs_store SET usedQuestionIdsJson = :usedJson WHERE currentAffairId = :affairId")
     suspend fun updateUsedQuestion(affairId: String, usedJson: String)
 }
+
+@Dao
+interface QuestionHistoryDao {
+    @Query("SELECT * FROM question_history_table WHERE profileId = :profileId")
+    suspend fun getHistoryForProfile(profileId: String): List<QuestionHistoryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertQuestionHistory(entity: QuestionHistoryEntity)
+}
+
+@Dao
+interface GameSessionDao {
+    @Query("SELECT * FROM game_sessions_table WHERE sessionId = :sessionId LIMIT 1")
+    suspend fun getSession(sessionId: String): GameSessionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSession(entity: GameSessionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertEvent(entity: GameSessionEventEntity)
+
+    @Query("SELECT * FROM game_session_events_table WHERE sessionId = :sessionId ORDER BY timestamp ASC")
+    suspend fun getEventsForSession(sessionId: String): List<GameSessionEventEntity>
+}
+
+@Dao
+interface AppMetadataDao {
+    @Query("SELECT * FROM app_metadata_table ORDER BY versionCode DESC LIMIT 1")
+    suspend fun getLatestAppMetadata(): AppMetadataEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAppMetadata(entity: AppMetadataEntity)
+}
+

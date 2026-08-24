@@ -17,6 +17,15 @@ data class QuestionRegistryEntity(
     val createdTimestamp: Long = System.currentTimeMillis()
 )
 
+@Entity(tableName = "question_history_table")
+data class QuestionHistoryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val profileId: String,
+    val questionId: String,
+    val semanticFingerprint: String,
+    val usedAt: Long = System.currentTimeMillis()
+)
+
 @Entity(tableName = "user_profile_table")
 data class UserProfileEntity(
     @PrimaryKey val userId: String = "primary_user",
@@ -54,6 +63,33 @@ data class GameHistoryEntity(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+@Entity(tableName = "game_sessions_table")
+data class GameSessionEntity(
+    @PrimaryKey val sessionId: String,
+    val userId: String,
+    val startTimeMillis: Long,
+    val status: String, // "ACTIVE", "COMPLETED", "QUIT", "TIMEOUT", "WRONG_ANSWER"
+    val finalQuestionReached: Int = 1,
+    val finalPrize: Long = 0
+)
+
+@Entity(tableName = "game_session_events_table")
+data class GameSessionEventEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val sessionId: String,
+    val eventType: String, // SESSION_START, QUESTION_SHOWN, READ_START, READ_END, ANSWER_LOCKED, PAUSE_START, PAUSE_END, TIMEOUT, WRONG, CORRECT, QUIT, SESSION_END
+    val timestamp: Long = System.currentTimeMillis(),
+    val details: String = ""
+)
+
+@Entity(tableName = "app_metadata_table")
+data class AppMetadataEntity(
+    @PrimaryKey val versionCode: Int,
+    val versionName: String,
+    val updatedAt: Long = System.currentTimeMillis(),
+    val releaseNotes: String
+)
+
 @Entity(tableName = "current_affairs_store")
 data class CurrentAffairEntity(
     @PrimaryKey val currentAffairId: String,
@@ -76,3 +112,4 @@ data class CurrentAffairEntity(
     val usedQuestionIdsJson: String = "[]",
     val isExpired: Boolean = false
 )
+
