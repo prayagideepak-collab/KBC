@@ -1,0 +1,6 @@
+{
+  "name": "TarkShastra",
+  "description": "An adaptive 17-question AI reasoning quiz where answers are deduced through pure logic, featuring progressive difficulty, Padaav checkpoints, and intelligent lifelines.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
