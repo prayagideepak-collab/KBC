@@ -60,10 +60,12 @@ class TarkRepository(
         val vector = computeKnowledgeVector(profile)
         val isStudent = profile.preparationDomain.contains("Student", true) || profile.isStudentMode
         val entity = UserProfileEntity(
-            userId = "primary_user",
+            userId = profile.id.ifEmpty { "primary_user" },
             name = profile.name,
             age = profile.age,
             state = profile.state,
+            languageMode = profile.preferredLanguage.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" },
+            upiId = profile.upiId,
             educationLevel = profile.educationLevel,
             occupation = if (isStudent) "Student" else profile.occupation,
             preparationDomain = profile.preparationDomain,
@@ -93,7 +95,7 @@ class TarkRepository(
         userProfile: UserProfile,
         currentAffairsSlots: Set<Int>
     ): Map<Int, QuestionItem> = withContext(Dispatchers.IO) {
-        val servedFingerprints = questionDao.getAllServedFingerprints().toMutableSet()
+        val servedFingerprints = questionDao.getAllServedFingerprintsForProfile(userProfile.id).toMutableSet()
         val ladder = mutableMapOf<Int, QuestionItem>()
 
         for (qNum in 1..17) {
@@ -125,7 +127,7 @@ class TarkRepository(
         isCurrentAffairsSlot: Boolean = false,
         customFingerprints: Set<String>? = null
     ): QuestionItem = withContext(Dispatchers.IO) {
-        val servedFingerprints = customFingerprints ?: questionDao.getAllServedFingerprints().toSet()
+        val servedFingerprints = customFingerprints ?: questionDao.getAllServedFingerprintsForProfile(userProfile.id).toSet()
 
         if (isCurrentAffairsSlot) {
             return@withContext getCurrentAffairsQuestionForTier(
@@ -148,7 +150,7 @@ class TarkRepository(
         )
 
         // Register in Room Database
-        registerQuestionInDb(selectedQuestion)
+        registerQuestionInDb(selectedQuestion, userProfile.id)
 
         selectedQuestion
     }
@@ -194,7 +196,7 @@ class TarkRepository(
     }
 
     suspend fun markQuestionFlipped(questionId: String) = withContext(Dispatchers.IO) {
-        questionDao.markQuestionFlipped(questionId)
+        // Handled via profile session question tracking
     }
 
     suspend fun getLiveExpertGuidance(
@@ -232,10 +234,12 @@ class TarkRepository(
 
         val isStudent = currentProfile.preparationDomain.contains("Student", true) || currentProfile.isStudentMode
         val updatedEntity = UserProfileEntity(
-            userId = "primary_user",
+            userId = currentProfile.id.ifEmpty { "primary_user" },
             name = currentProfile.name,
             age = currentProfile.age,
             state = currentProfile.state,
+            languageMode = currentProfile.preferredLanguage.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" },
+            upiId = currentProfile.upiId,
             educationLevel = currentProfile.educationLevel,
             occupation = currentProfile.occupation,
             preparationDomain = currentProfile.preparationDomain,
@@ -256,16 +260,18 @@ class TarkRepository(
         userProfileDao.saveUserProfile(updatedEntity)
     }
 
-    private suspend fun registerQuestionInDb(question: QuestionItem) {
+    private suspend fun registerQuestionInDb(question: QuestionItem, profileId: String = "primary_user") {
         try {
             val entity = QuestionRegistryEntity(
-                id = question.id,
+                id = "${question.id}_${profileId}_${System.currentTimeMillis()}",
+                profileId = profileId,
+                questionId = question.id,
                 semanticFingerprint = question.semanticFingerprint,
                 canonicalQuestion = question.questionEnglish,
-                category = question.category,
+                languageMode = "HINDI",
                 difficultyTier = question.qNumber,
-                correctAnswer = question.optionsEnglish[question.correctAnswerIndex],
-                deductionSummary = question.deductionPathEnglish
+                questionVersion = 1,
+                usedAt = System.currentTimeMillis()
             )
             questionDao.registerQuestion(entity)
         } catch (_: Exception) {}
@@ -351,6 +357,8 @@ class TarkRepository(
             name = entity.name,
             age = entity.age,
             state = entity.state,
+            preferredLanguage = entity.languageMode.lowercase(),
+            upiId = entity.upiId ?: "",
             educationLevel = entity.educationLevel,
             occupation = entity.occupation,
             preparationDomain = entity.preparationDomain,

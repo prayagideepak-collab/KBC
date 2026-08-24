@@ -1,28 +1,22 @@
 package com.example.data.db
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "question_registry")
+@Entity(
+    tableName = "question_registry",
+    indices = [Index(value = ["profileId", "semanticFingerprint"], unique = true)]
+)
 data class QuestionRegistryEntity(
     @PrimaryKey val id: String,
-    val semanticFingerprint: String,
-    val canonicalQuestion: String,
-    val category: String,
-    val difficultyTier: Int,
-    val correctAnswer: String,
-    val deductionSummary: String,
-    val isFlipped: Boolean = false,
-    val servedCount: Int = 1,
-    val createdTimestamp: Long = System.currentTimeMillis()
-)
-
-@Entity(tableName = "question_history_table")
-data class QuestionHistoryEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val profileId: String,
     val questionId: String,
     val semanticFingerprint: String,
+    val canonicalQuestion: String,
+    val languageMode: String,
+    val difficultyTier: Int,
+    val questionVersion: Int = 1,
     val usedAt: Long = System.currentTimeMillis()
 )
 
@@ -32,6 +26,8 @@ data class UserProfileEntity(
     val name: String,
     val age: Int,
     val state: String,
+    val languageMode: String = "HINDI", // HINDI, ENGLISH, BILINGUAL
+    val upiId: String? = "",
     val educationLevel: String,
     val occupation: String,
     val preparationDomain: String,
@@ -59,16 +55,20 @@ data class GameHistoryEntity(
     val outcomeStatus: String, // "CLEARED_7_CRORE", "LOCKED_CHECKPOINT", "QUIT", "TIME_OUT", "WRONG_ANSWER"
     val correctAnswersCount: Int,
     val lifelinesUsed: String,
-    val durationSeconds: Int,
+    val totalDurationMillis: Long = 0L,
+    val totalResponseMillis: Long = 0L,
+    val averageResponseMillis: Float = 0f,
+    val durationSeconds: Int = 0,
     val timestamp: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "game_sessions_table")
 data class GameSessionEntity(
     @PrimaryKey val sessionId: String,
-    val userId: String,
+    val profileId: String,
     val startTimeMillis: Long,
-    val status: String, // "ACTIVE", "COMPLETED", "QUIT", "TIMEOUT", "WRONG_ANSWER"
+    val endedAtMillis: Long = 0L,
+    val status: String, // "ACTIVE", "COMPLETED", "WRONG_ANSWER", "TIMEOUT", "QUIT"
     val finalQuestionReached: Int = 1,
     val finalPrize: Long = 0
 )
@@ -77,9 +77,10 @@ data class GameSessionEntity(
 data class GameSessionEventEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val sessionId: String,
-    val eventType: String, // SESSION_START, QUESTION_SHOWN, READ_START, READ_END, ANSWER_LOCKED, PAUSE_START, PAUSE_END, TIMEOUT, WRONG, CORRECT, QUIT, SESSION_END
-    val timestamp: Long = System.currentTimeMillis(),
-    val details: String = ""
+    val eventType: String, // SESSION_START, QUESTION_SHOWN, READ_START, READ_END, ANSWER_LOCKED, PAUSE_START, PAUSE_END, CORRECT, WRONG, TIMEOUT, QUIT, SESSION_END
+    val questionId: String? = null,
+    val timestampMillis: Long = System.currentTimeMillis(),
+    val metadata: String = ""
 )
 
 @Entity(tableName = "app_metadata_table")
@@ -103,7 +104,7 @@ data class CurrentAffairEntity(
     val country: String = "India",
     val state: String = "National",
     val districtRegion: String = "",
-    val topic: String, // "National", "International", "Govt Schemes", "Science & Tech", "Environment", "Economy", "Sports", "Education", "Appointments", "Regional"
+    val topic: String,
     val juniorEligibility: Boolean = true,
     val adultEligibility: Boolean = true,
     val minAge: Int = 5,
@@ -112,4 +113,3 @@ data class CurrentAffairEntity(
     val usedQuestionIdsJson: String = "[]",
     val isExpired: Boolean = false
 )
-

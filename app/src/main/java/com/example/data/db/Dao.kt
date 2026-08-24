@@ -8,17 +8,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface QuestionDao {
-    @Query("SELECT * FROM question_registry WHERE semanticFingerprint = :fingerprint LIMIT 1")
-    suspend fun getQuestionByFingerprint(fingerprint: String): QuestionRegistryEntity?
+    @Query("SELECT * FROM question_registry WHERE profileId = :profileId AND semanticFingerprint = :fingerprint LIMIT 1")
+    suspend fun getQuestionByFingerprintForProfile(profileId: String, fingerprint: String): QuestionRegistryEntity?
 
-    @Query("SELECT semanticFingerprint FROM question_registry")
-    suspend fun getAllServedFingerprints(): List<String>
+    @Query("SELECT semanticFingerprint FROM question_registry WHERE profileId = :profileId")
+    suspend fun getAllServedFingerprintsForProfile(profileId: String): List<String>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun registerQuestion(entity: QuestionRegistryEntity)
-
-    @Query("UPDATE question_registry SET isFlipped = 1 WHERE id = :questionId")
-    suspend fun markQuestionFlipped(questionId: String)
 
     @Query("SELECT COUNT(*) FROM question_registry")
     fun getRegisteredQuestionsCount(): Flow<Int>
@@ -52,6 +49,33 @@ interface GameHistoryDao {
 }
 
 @Dao
+interface GameSessionDao {
+    @Query("SELECT * FROM game_sessions_table WHERE sessionId = :sessionId LIMIT 1")
+    suspend fun getSession(sessionId: String): GameSessionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSession(entity: GameSessionEntity)
+
+    @Query("UPDATE game_sessions_table SET status = :status, endedAtMillis = :endedAt, finalQuestionReached = :qReached, finalPrize = :prize WHERE sessionId = :sessionId")
+    suspend fun updateSessionStatus(sessionId: String, status: String, endedAt: Long, qReached: Int, prize: Long)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertEvent(entity: GameSessionEventEntity)
+
+    @Query("SELECT * FROM game_session_events_table WHERE sessionId = :sessionId ORDER BY timestampMillis ASC")
+    suspend fun getEventsForSession(sessionId: String): List<GameSessionEventEntity>
+}
+
+@Dao
+interface AppMetadataDao {
+    @Query("SELECT * FROM app_metadata_table ORDER BY versionCode DESC LIMIT 1")
+    suspend fun getLatestAppMetadata(): AppMetadataEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAppMetadata(entity: AppMetadataEntity)
+}
+
+@Dao
 interface CurrentAffairsDao {
     @Query("SELECT * FROM current_affairs_store WHERE isExpired = 0 ORDER BY lastVerifiedDate DESC")
     fun getAllActiveCurrentAffairsFlow(): Flow<List<CurrentAffairEntity>>
@@ -76,41 +100,4 @@ interface CurrentAffairsDao {
 
     @Query("SELECT COUNT(*) FROM current_affairs_store")
     suspend fun getCount(): Int
-
-    @Query("UPDATE current_affairs_store SET usedQuestionIdsJson = :usedJson WHERE currentAffairId = :affairId")
-    suspend fun updateUsedQuestion(affairId: String, usedJson: String)
 }
-
-@Dao
-interface QuestionHistoryDao {
-    @Query("SELECT * FROM question_history_table WHERE profileId = :profileId")
-    suspend fun getHistoryForProfile(profileId: String): List<QuestionHistoryEntity>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertQuestionHistory(entity: QuestionHistoryEntity)
-}
-
-@Dao
-interface GameSessionDao {
-    @Query("SELECT * FROM game_sessions_table WHERE sessionId = :sessionId LIMIT 1")
-    suspend fun getSession(sessionId: String): GameSessionEntity?
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSession(entity: GameSessionEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertEvent(entity: GameSessionEventEntity)
-
-    @Query("SELECT * FROM game_session_events_table WHERE sessionId = :sessionId ORDER BY timestamp ASC")
-    suspend fun getEventsForSession(sessionId: String): List<GameSessionEventEntity>
-}
-
-@Dao
-interface AppMetadataDao {
-    @Query("SELECT * FROM app_metadata_table ORDER BY versionCode DESC LIMIT 1")
-    suspend fun getLatestAppMetadata(): AppMetadataEntity?
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAppMetadata(entity: AppMetadataEntity)
-}
-

@@ -98,7 +98,10 @@ fun ProfileScreen(
 
     var name by remember(currentProfile) { mutableStateOf(currentProfile.name) }
     var selectedState by remember(currentProfile) { mutableStateOf(currentProfile.state) }
-    var selectedLanguage by remember(currentProfile) { mutableStateOf<String>(currentProfile.preferredLanguage.ifBlank { "hi" }) }
+    var selectedLanguage by remember(currentProfile) { 
+        val lang = currentProfile.preferredLanguage.uppercase()
+        mutableStateOf(if (lang in listOf("HINDI", "ENGLISH", "BILINGUAL")) lang else "HINDI")
+    }
     var upiId by remember(currentProfile) { mutableStateOf<String>(currentProfile.upiId) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
@@ -405,8 +408,8 @@ fun ProfileScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("hi" to "🇮🇳 Hindi", "en" to "🇬🇧 English", "both" to "🌐 Both").forEach { (code, label) ->
-                            val isSelected = selectedLanguage == code
+                        listOf("HINDI" to "🇮🇳 Hindi", "ENGLISH" to "🇬🇧 English", "BILINGUAL" to "🌐 Bilingual").forEach { (code, label) ->
+                            val isSelected = selectedLanguage.uppercase() == code
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
