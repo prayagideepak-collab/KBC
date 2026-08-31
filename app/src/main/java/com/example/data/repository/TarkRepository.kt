@@ -260,22 +260,23 @@ class TarkRepository(
         userProfileDao.saveUserProfile(updatedEntity)
     }
 
-    private suspend fun registerQuestionInDb(question: QuestionItem, profileId: String = "primary_user", languageMode: String = "HINDI") {
-        try {
-            val validLang = languageMode.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" }
-            val entity = QuestionRegistryEntity(
-                id = "${question.id}_${profileId}_${System.currentTimeMillis()}",
-                profileId = profileId,
-                questionId = question.id,
-                semanticFingerprint = question.semanticFingerprint,
-                canonicalQuestion = question.questionEnglish.ifBlank { question.questionHindi },
-                languageMode = validLang,
-                difficultyTier = question.qNumber,
-                questionVersion = 1,
-                usedAt = System.currentTimeMillis()
-            )
-            questionDao.registerQuestion(entity)
-        } catch (_: Exception) {}
+    private suspend fun registerQuestionInDb(question: QuestionItem, profileId: String, languageMode: String) {
+        val validLang = languageMode.uppercase()
+        if (validLang !in listOf("HINDI", "ENGLISH", "BILINGUAL")) {
+            throw IllegalArgumentException("Invalid language mode: $languageMode. Profile repair required.")
+        }
+        val entity = QuestionRegistryEntity(
+            id = "${question.id}_${profileId}_${System.currentTimeMillis()}",
+            profileId = profileId,
+            questionId = question.id,
+            semanticFingerprint = question.semanticFingerprint,
+            canonicalQuestion = question.questionEnglish.ifBlank { question.questionHindi },
+            languageMode = validLang,
+            difficultyTier = question.qNumber,
+            questionVersion = 1,
+            usedAt = System.currentTimeMillis()
+        )
+        questionDao.registerQuestion(entity)
     }
 
     private fun selectCategoryForTierAndProfile(qNumber: Int, profile: UserProfile): String {

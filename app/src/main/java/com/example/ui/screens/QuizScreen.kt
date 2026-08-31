@@ -357,7 +357,7 @@ fun QuizScreen(
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = "📷 Camera Identity Active",
+                                text = "🛡️ Anti-Cheating Monitoring Active",
                                 color = SuccessGreen,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
