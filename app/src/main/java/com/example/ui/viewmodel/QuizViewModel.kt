@@ -319,20 +319,24 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 android.util.Log.d("TarkShastra", "START_GAME_REQUEST invoked")
                 val context = getApplication<Application>()
-                val hasCamera = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                val isTv = com.example.util.DeviceCapabilities.isTv(context)
+                val deviceHasCamera = com.example.util.DeviceCapabilities.hasCamera(context)
+                val deviceHasMic = com.example.util.DeviceCapabilities.hasMicrophone(context)
+
+                val hasCamera = if (isTv && !deviceHasCamera) true else androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                val hasMic = if (isTv && !deviceHasMic) true else androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
                 val hasNotification = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                     androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
                 } else {
                     true
                 }
 
-                if (!hasCamera || !hasMic || !hasNotification) {
-                    val missing = mutableListOf<String>()
-                    if (!hasCamera) missing.add("Camera")
-                    if (!hasMic) missing.add("Microphone")
-                    if (!hasNotification) missing.add("Notifications")
+                val missing = mutableListOf<String>()
+                if (!hasCamera && !(isTv && !deviceHasCamera)) missing.add("Camera")
+                if (!hasMic && !(isTv && !deviceHasMic)) missing.add("Microphone")
+                if (!hasNotification && !isTv) missing.add("Notifications")
 
+                if (missing.isNotEmpty()) {
                     _uiState.value = QuizUiState.PermissionRequired(
                         missingPermissions = missing,
                         message = "⚠️ Anti-Cheating Game Access Blocked: Missing required permissions (${missing.joinToString(", ")}). Camera and Microphone are required for active-game anti-cheating verification, and Notifications are required for game updates. Please grant them in the Profile settings."
