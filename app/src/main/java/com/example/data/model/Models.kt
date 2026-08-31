@@ -30,6 +30,7 @@ data class KnowledgeProfileVector(
 data class QuestionItem(
     val id: String,
     val qNumber: Int,                     // 1 to 17
+    val difficultyLevel: Int = qNumber,   // 1 to 17
     val difficultyTitle: String,          // "Very Easy", "Easy+", "Medium", "Hard", "Expert", "Extreme"
     val timeLimitSeconds: Int?,           // 60, 120, or null (no limit)
     val prizePoints: Long,                // 1,000 to 70,000,000

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Translate
+import com.example.ui.components.DifficultyLevelIndicator
 import com.example.ui.components.ScratchpadDialog
 import com.example.ui.viewmodel.QuestionPhase
 import com.example.ui.viewmodel.TimerMode
@@ -171,65 +172,14 @@ fun QuizScreen(
             )
 
             // ==========================================
-            // 17 LOGIC LEVELS VISUAL PROGRESS TRACKER
+            // 17 LOGIC LEVELS DIFFICULTY LEVEL INDICATOR
             // ==========================================
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .testTag("visual_progress_tracker"),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = NavyCard),
-                border = BorderStroke(1.dp, NavyBorder)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (isHi) "तर्क स्तर (Logic Level) ${state.currentQNumber} / 17" else "Logic Level ${state.currentQNumber} of 17",
-                            color = GoldPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                        Text(
-                            text = if (isHi) "${maxOf(0, 17 - state.currentQNumber)} प्रश्न शेष" else "${maxOf(0, 17 - state.currentQNumber)} questions left",
-                            color = TextSecondary,
-                            fontSize = 11.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        for (i in 1..17) {
-                            val isCompleted = i < state.currentQNumber
-                            val isCurrent = i == state.currentQNumber
-                            val dotColor = when {
-                                isCompleted -> SuccessGreen
-                                isCurrent -> GoldPrimary
-                                else -> NavyBorder
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(6.dp)
-                                    .padding(horizontal = 1.dp)
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(dotColor)
-                            )
-                        }
-                    }
-                }
-            }
+            DifficultyLevelIndicator(
+                currentLevel = state.currentQNumber,
+                totalLevels = 17,
+                isHindi = isHi,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
 
             // ==========================================
             // SCROLLABLE QUESTION & CLUES BODY
