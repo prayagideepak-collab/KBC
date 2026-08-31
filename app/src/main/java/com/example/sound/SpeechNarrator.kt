@@ -23,7 +23,6 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var tts: TextToSpeech? = TextToSpeech(context.applicationContext, this)
     private var isReady = false
-    private var hardCeilingJob: Job? = null
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
@@ -60,7 +59,7 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
         try {
             val locale = getLocaleForMode(languageMode)
             tts?.language = locale
-            tts?.setSpeechRate(1.0f) // Normal comfortable Junior/Adult speech rate
+            tts?.setSpeechRate(1.0f) // Normal comfortable speech rate
             tts?.setPitch(1.0f)
 
             val utteranceId = "Tark_Q_${System.currentTimeMillis()}"
@@ -68,8 +67,6 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
 
             val notifyComplete = {
                 if (isCompleted.compareAndSet(false, true)) {
-                    hardCeilingJob?.cancel()
-                    hardCeilingJob = null
                     scope.launch { onComplete?.invoke() }
                 }
             }
@@ -88,13 +85,8 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
                 }
             })
 
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-
-            // Safe fallback timer based on word count (e.g. 300ms per word, min 4s, max 15s) in case TTS callback fails
-            val words = text.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-            val fallbackDelay = (words.size * 300L).coerceIn(4000L, 15000L)
-            hardCeilingJob = scope.launch {
-                delay(fallbackDelay)
+            val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+            if (result == TextToSpeech.ERROR) {
                 notifyComplete()
             }
         } catch (_: Exception) {
@@ -162,16 +154,12 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
     }
 
     fun stop() {
-        hardCeilingJob?.cancel()
-        hardCeilingJob = null
         try {
             tts?.stop()
         } catch (_: Exception) {}
     }
 
     fun shutdown() {
-        hardCeilingJob?.cancel()
-        hardCeilingJob = null
         try {
             tts?.stop()
             tts?.shutdown()

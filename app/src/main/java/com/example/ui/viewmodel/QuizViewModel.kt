@@ -173,6 +173,17 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     private var currentSessionWrongCount = 0
     private var currentSessionTotalResponseSeconds = 0f
     private var currentQuestionPresentationTimestamp = 0L
+    private var currentNarrationToken = 0L
+
+    private fun cleanupSessionResources() {
+        stopTimer()
+        speechNarrator.stop()
+        pauseJob?.cancel()
+        pauseJob = null
+        readOnlyJob?.cancel()
+        readOnlyJob = null
+        currentNarrationToken = System.currentTimeMillis()
+    }
 
     private fun generateSessionId(): String {
         val sdf = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
@@ -323,10 +334,8 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        stopTimer()
+        cleanupSessionResources()
         stopIdentityMonitoring()
-        pauseJob?.cancel()
-        pauseJob = null
         flippedQuestionIds.clear()
         currentSessionId = generateSessionId()
         currentSessionLifelinesUsed = 0
@@ -422,9 +431,16 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 else -> question.questionHindi
             }
 
+            speechNarrator.stop()
+            currentNarrationToken = System.currentTimeMillis()
+            val token = currentNarrationToken
+            val sessionId = currentSessionId
+
             if (_isVoiceNarrationEnabled.value) {
                 speechNarrator.speakQuestionBounded(qText, langMode) {
-                    transitionToActiveChoice(targetQNum, allocatedTime)
+                    if (currentSessionId == sessionId && currentNarrationToken == token) {
+                        transitionToActiveChoice(targetQNum, allocatedTime)
+                    }
                 }
             } else {
                 transitionToActiveChoice(targetQNum, allocatedTime)
@@ -879,7 +895,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         reason: String,
         lastQ: QuestionItem?
     ) {
-        stopTimer()
+        cleanupSessionResources()
         val avgResponseTime = if (highestQ > 0) currentSessionTotalResponseSeconds / highestQ else 0f
         val accuracy = if (highestQ > 0) ((currentSessionCorrectCount.toFloat() / highestQ) * 100).toInt() else 0
         val profile = userProfile.value
