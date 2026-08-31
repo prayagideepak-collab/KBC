@@ -43,7 +43,6 @@ enum class QuestionPhase {
 }
 
 enum class TimerMode {
-    READING,           // 5-second question reading countdown (00:05 -> 00:00)
     TIMED,             // Main authoritative countdown (Q1-Q10) with urgency alerts
     UNLIMITED_ELAPSED, // Post-Second Padaav (Q11-Q17): count-up thinking time
     RESULT             // Post-lock / evaluation state
@@ -67,9 +66,7 @@ sealed interface QuizUiState {
         val question: QuestionItem,
         val currentQNumber: Int,
         val phase: QuestionPhase = QuestionPhase.READING_WINDOW,
-        val timerMode: TimerMode = TimerMode.READING,
-        val isReadOnlySession: Boolean = true,
-        val readOnlySecondsRemaining: Int = 10,
+        val timerMode: TimerMode = TimerMode.TIMED,
         val isPaused: Boolean = false,
         val pauseSecondsRemaining: Int = 10,
         val elapsedThinkingSeconds: Int = 0,
@@ -283,111 +280,19 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     private fun startIdentityMonitoring() {
         identityMonitoringJob?.cancel()
         identityWarningCount = 0
-        identityMonitoringJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
+        // Anti-cheating verification kept in compliant non-functional state (no fake confidence simulation or fake warnings).
+        try {
+            viewModelScope.launch(Dispatchers.IO) {
                 db.gameSessionDao().insertEvent(
                     GameSessionEventEntity(
                         sessionId = currentSessionId,
-                        eventType = "IDENTITY_VERIFICATION_STARTED",
+                        eventType = "IDENTITY_MONITORING_IDLE",
                         timestampMillis = System.currentTimeMillis(),
-                        metadata = "Camera monitoring active for active game session"
+                        metadata = "Anti-cheating monitoring active in compliant non-functional mode"
                     )
                 )
-            } catch (_: Exception) {}
-
-            while (true) {
-                delay(15000)
-                val state = _uiState.value
-                if (state !is QuizUiState.InGame || state.isLockedIn || state.isAnswerRevealed || state.isPaused) {
-                    continue
-                }
-
-                val confidence = 0.95f
-                val passed = confidence >= 0.70f
-
-                if (passed) {
-                    try {
-                        db.gameSessionDao().insertEvent(
-                            GameSessionEventEntity(
-                                sessionId = currentSessionId,
-                                eventType = "IDENTITY_VERIFICATION_PASSED",
-                                timestampMillis = System.currentTimeMillis(),
-                                metadata = "Confidence: $confidence"
-                            )
-                        )
-                    } catch (_: Exception) {}
-                } else {
-                    identityWarningCount++
-                    val warningType = when (identityWarningCount) {
-                        1 -> "IDENTITY_WARNING_1"
-                        2 -> "IDENTITY_WARNING_2"
-                        3 -> "IDENTITY_WARNING_3"
-                        else -> "SESSION_DISQUALIFIED"
-                    }
-
-                    try {
-                        db.gameSessionDao().insertEvent(
-                            GameSessionEventEntity(
-                                sessionId = currentSessionId,
-                                eventType = warningType,
-                                timestampMillis = System.currentTimeMillis(),
-                                metadata = "Warning count: $identityWarningCount"
-                            )
-                        )
-                    } catch (_: Exception) {}
-
-                    if (identityWarningCount > 3) {
-                        stopTimer()
-                        stopIdentityMonitoring()
-                        try {
-                            db.gameSessionDao().updateSessionStatus(
-                                sessionId = currentSessionId,
-                                status = "DISQUALIFIED",
-                                endedAt = System.currentTimeMillis(),
-                                qReached = state.currentQNumber,
-                                prize = state.currentPointsWon
-                            )
-                        } catch (_: Exception) {}
-
-                        withContext(Dispatchers.Main) {
-                            _uiState.value = QuizUiState.GameSummary(
-                                result = GameSessionResult(
-                                    sessionId = currentSessionId,
-                                    userName = userProfile.value.name,
-                                    totalPointsWon = state.currentPointsWon,
-                                    highestQuestionReached = state.currentQNumber,
-                                    isCompletedWon = false,
-                                    guaranteedPointsSecured = state.guaranteedSecuredPoints,
-                                    reasonEnded = "DISQUALIFIED: Repeated identity verification failures detected.",
-                                    questionsAnsweredCount = currentSessionCorrectCount + currentSessionWrongCount,
-                                    correctCount = currentSessionCorrectCount,
-                                    wrongCount = currentSessionWrongCount,
-                                    lifelinesUsedCount = currentSessionLifelinesUsed,
-                                    hintsUsedCount = currentSessionHintsUsed,
-                                    totalResponseTimeSec = currentSessionTotalResponseSeconds,
-                                    averageResponseTimeSec = if (currentSessionCorrectCount + currentSessionWrongCount > 0) currentSessionTotalResponseSeconds / (currentSessionCorrectCount + currentSessionWrongCount) else 0f,
-                                    logicAccuracyPercentage = if (currentSessionCorrectCount + currentSessionWrongCount > 0) (currentSessionCorrectCount * 100) / (currentSessionCorrectCount + currentSessionWrongCount) else 0,
-                                    gameMode = if (userProfile.value.isStudentMode) "Junior" else "Adult",
-                                    examContext = "Identity Monitored Session"
-                                ),
-                                lastQuestion = state.question
-                            )
-                        }
-                        break
-                    } else {
-                        withContext(Dispatchers.Main) {
-                            val curr = _uiState.value
-                            if (curr is QuizUiState.InGame) {
-                                _uiState.value = curr.copy(
-                                    identityWarningCount = identityWarningCount,
-                                    disqualificationNotice = "⚠️ Warning $identityWarningCount of 3: Identity verification failed. Please ensure your face remains clearly visible to the camera."
-                                )
-                            }
-                        }
-                    }
-                }
             }
-        }
+        } catch (_: Exception) {}
     }
 
     private fun stopIdentityMonitoring() {
@@ -474,109 +379,118 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         val baseTime = calculateBaseTimeLimitForQuestion(targetQNum)
         val isTimed = baseTime != null
         val allocatedTime = baseTime
-        val hasBonus = false
-        val bonus = 0
 
         val profile = userProfile.value
         val isJunior = profile.isStudentMode || profile.preparationDomain.contains("Student", true)
-        val initialHintAvailable = if (isJunior && isTimed) false else !isTimed
 
-        _uiState.value = QuizUiState.InGame(
-            question = question,
-            currentQNumber = targetQNum,
-            phase = QuestionPhase.READING_WINDOW,
-            timerMode = TimerMode.READING,
-            isReadOnlySession = true,
-            readOnlySecondsRemaining = 10,
-            elapsedThinkingSeconds = 0,
-            isFreeHintAvailable = initialHintAvailable,
-            isFreeHintVisible = false,
-            freeHintContent = null,
-            isOptionsVisible = false,
-            selectedOptionIndex = null,
-            lockedOptionIndex = null,
-            isLockedIn = false,
-            isAnswerRevealed = false,
-            isCorrect = false,
-            timeRemainingSeconds = allocatedTime,
-            totalTimeAllocated = allocatedTime,
-            baseTimeSeconds = baseTime,
-            hasBonusTime = hasBonus,
-            accumulatedBonusSeconds = bonus,
-            lifelineUsedInCurrentQuestion = isFlipReplacement,
-            isTimerRunning = false,
-            discardedOptionIndices = emptySet(),
-            currentPointsWon = accumulatedPoints,
-            guaranteedSecuredPoints = guaranteedPoints,
-            lifelineState = lifelines,
-            isLadderDrawerOpen = false,
-            expertDialogContent = null,
-            isExpertLoading = false,
-            fiftyFiftyProofDialog = null,
-            showCheckpointFanfare = if (question.isCheckpoint && !isFlipReplacement) question.checkpointTitle else null,
-            bonusLostNotice = false
-        )
+        if (isJunior) {
+            _uiState.value = QuizUiState.InGame(
+                question = question,
+                currentQNumber = targetQNum,
+                phase = QuestionPhase.READING_WINDOW,
+                timerMode = TimerMode.TIMED,
+                elapsedThinkingSeconds = 0,
+                isFreeHintAvailable = false,
+                isFreeHintVisible = false,
+                freeHintContent = null,
+                isOptionsVisible = false,
+                selectedOptionIndex = null,
+                lockedOptionIndex = null,
+                isLockedIn = false,
+                isAnswerRevealed = false,
+                isCorrect = false,
+                timeRemainingSeconds = allocatedTime,
+                totalTimeAllocated = allocatedTime,
+                baseTimeSeconds = baseTime,
+                lifelineUsedInCurrentQuestion = isFlipReplacement,
+                isTimerRunning = false,
+                discardedOptionIndices = emptySet(),
+                currentPointsWon = accumulatedPoints,
+                guaranteedSecuredPoints = guaranteedPoints,
+                lifelineState = lifelines,
+                isLadderDrawerOpen = false,
+                expertDialogContent = null,
+                isExpertLoading = false,
+                fiftyFiftyProofDialog = null,
+                showCheckpointFanfare = if (question.isCheckpoint && !isFlipReplacement) question.checkpointTitle else null
+            )
 
-        // Read question immediately with strict 10.0-second hard ceiling
-        if (_isVoiceNarrationEnabled.value) {
             val langMode = languageMode.value
             val qText = when (langMode) {
                 "ENGLISH" -> question.questionEnglish
                 "BILINGUAL" -> "${question.questionHindi}\n${question.questionEnglish}"
                 else -> question.questionHindi
             }
-            speechNarrator.speakQuestionBounded(qText, langMode, maxDurationSec = 10.0f)
-        }
 
-        // Start 10-second Read Only Session window before showing options and starting main timer
-        startReadOnlySession(allocatedTime)
+            if (_isVoiceNarrationEnabled.value) {
+                speechNarrator.speakQuestionBounded(qText, langMode) {
+                    transitionToActiveChoice(targetQNum, allocatedTime)
+                }
+            } else {
+                transitionToActiveChoice(targetQNum, allocatedTime)
+            }
+        } else {
+            _uiState.value = QuizUiState.InGame(
+                question = question,
+                currentQNumber = targetQNum,
+                phase = QuestionPhase.ACTIVE_CHOICE,
+                timerMode = if (isTimed) TimerMode.TIMED else TimerMode.UNLIMITED_ELAPSED,
+                elapsedThinkingSeconds = 0,
+                isFreeHintAvailable = true,
+                isFreeHintVisible = false,
+                freeHintContent = null,
+                isOptionsVisible = true,
+                selectedOptionIndex = null,
+                lockedOptionIndex = null,
+                isLockedIn = false,
+                isAnswerRevealed = false,
+                isCorrect = false,
+                timeRemainingSeconds = allocatedTime,
+                totalTimeAllocated = allocatedTime,
+                baseTimeSeconds = baseTime,
+                lifelineUsedInCurrentQuestion = isFlipReplacement,
+                isTimerRunning = isTimed,
+                discardedOptionIndices = emptySet(),
+                currentPointsWon = accumulatedPoints,
+                guaranteedSecuredPoints = guaranteedPoints,
+                lifelineState = lifelines,
+                isLadderDrawerOpen = false,
+                expertDialogContent = null,
+                isExpertLoading = false,
+                fiftyFiftyProofDialog = null,
+                showCheckpointFanfare = if (question.isCheckpoint && !isFlipReplacement) question.checkpointTitle else null
+            )
+
+            if (allocatedTime != null) {
+                startTimer(allocatedTime)
+            } else {
+                startUnlimitedThinkingTimer()
+            }
+        }
     }
 
-    private fun startReadOnlySession(mainTimeLimit: Int?) {
-        readOnlyJob?.cancel()
-        timerJob?.cancel()
-        readOnlyJob = viewModelScope.launch {
-            var readOnlyRemaining = 10
-            while (readOnlyRemaining > 0) {
-                delay(1000)
-                readOnlyRemaining--
-                val currentState = _uiState.value
-                if (currentState is QuizUiState.InGame && currentState.phase == QuestionPhase.READING_WINDOW) {
-                    _uiState.value = currentState.copy(
-                        readOnlySecondsRemaining = readOnlyRemaining,
-                        timerMode = TimerMode.READING
-                    )
-                } else {
-                    break
-                }
-            }
-
-            // 10-second reading window elapsed -> reveal options and start active timer
-            val stateAfter = _uiState.value
-            if (stateAfter is QuizUiState.InGame && stateAfter.phase == QuestionPhase.READING_WINDOW) {
-                soundPlayer.playOptionSelected()
-                if (mainTimeLimit != null) {
-                    _uiState.value = stateAfter.copy(
-                        phase = QuestionPhase.ACTIVE_CHOICE,
-                        timerMode = TimerMode.TIMED,
-                        isReadOnlySession = false,
-                        isOptionsVisible = true,
-                        isTimerRunning = true,
-                        isFreeHintAvailable = true // Manual Hint Button always available
-                    )
-                    startTimer(mainTimeLimit)
-                } else {
-                    // Q11-Q17: Unlimited Thinking Phase with Count-Up Elapsed Timer
-                    _uiState.value = stateAfter.copy(
-                        phase = QuestionPhase.ACTIVE_CHOICE,
-                        timerMode = TimerMode.UNLIMITED_ELAPSED,
-                        isReadOnlySession = false,
-                        isOptionsVisible = true,
-                        isTimerRunning = false,
-                        isFreeHintAvailable = true // Manual Hint Button active
-                    )
-                    startUnlimitedThinkingTimer()
-                }
+    private fun transitionToActiveChoice(targetQNum: Int, mainTimeLimit: Int?) {
+        val currentState = _uiState.value
+        if (currentState is QuizUiState.InGame && currentState.currentQNumber == targetQNum && currentState.phase == QuestionPhase.READING_WINDOW) {
+            soundPlayer.playOptionSelected()
+            if (mainTimeLimit != null) {
+                _uiState.value = currentState.copy(
+                    phase = QuestionPhase.ACTIVE_CHOICE,
+                    timerMode = TimerMode.TIMED,
+                    isOptionsVisible = true,
+                    isTimerRunning = true,
+                    isFreeHintAvailable = false
+                )
+                startTimer(mainTimeLimit)
+            } else {
+                _uiState.value = currentState.copy(
+                    phase = QuestionPhase.ACTIVE_CHOICE,
+                    timerMode = TimerMode.UNLIMITED_ELAPSED,
+                    isOptionsVisible = true,
+                    isTimerRunning = false,
+                    isFreeHintAvailable = true
+                )
+                startUnlimitedThinkingTimer()
             }
         }
     }
@@ -604,7 +518,8 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 if (currentState is QuizUiState.InGame && currentState.isTimerRunning && !currentState.isLockedIn) {
                     val elapsed = totalSeconds - remaining
                     val hintUnlocked = if (isJunior) {
-                        currentState.isFreeHintAvailable || elapsed >= (totalSeconds / 2)
+                        val threshold = if (currentState.currentQNumber <= 5) 30 else 60
+                        currentState.isFreeHintAvailable || elapsed >= threshold
                     } else {
                         true
                     }
@@ -1210,7 +1125,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 "BILINGUAL" -> "${state.question.questionHindi}\n${state.question.questionEnglish}"
                 else -> state.question.questionHindi
             }
-            speechNarrator.speakQuestionBounded(qText, langMode, maxDurationSec = 5.0f)
+            speechNarrator.speakQuestionBounded(qText, langMode)
         }
     }
 

@@ -49,36 +49,47 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
      * Calculates dynamic speech rate based on word count so full question is narrated within <= 5 sec.
      * A hard timeout forcibly stops TTS after 5.0 seconds.
      */
-    fun speakQuestionBounded(text: String, languageMode: String = "HINDI", maxDurationSec: Float = 5.0f) {
-        if (!isReady || tts == null) return
+    fun speakQuestionBounded(text: String, languageMode: String = "HINDI", onComplete: (() -> Unit)? = null) {
+        if (!isReady || tts == null) {
+            onComplete?.invoke()
+            return
+        }
         stop()
 
         try {
             val locale = getLocaleForMode(languageMode)
             tts?.language = locale
+            tts?.setSpeechRate(1.0f) // Normal comfortable Junior/Adult speech rate
+            tts?.setPitch(1.0f)
 
-            // Calculate dynamic speech rate
-            // Standard reading speed is ~2.6 words per second (13 words in 5 sec).
-            val words = text.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-            val wordCount = words.size.coerceAtLeast(1)
-            val baseDurationAt1x = wordCount / 2.6f
-
-            val dynamicRate = if (baseDurationAt1x > maxDurationSec) {
-                (baseDurationAt1x / maxDurationSec * 1.08f).coerceIn(1.0f, 3.5f)
-            } else {
-                1.0f
-            }
-
-            tts?.setSpeechRate(dynamicRate)
             val utteranceId = "Tark_Q_${System.currentTimeMillis()}"
+
+            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(id: String?) {}
+                override fun onDone(id: String?) {
+                    if (id == utteranceId) {
+                        scope.launch { onComplete?.invoke() }
+                    }
+                }
+                override fun onError(id: String?) {
+                    if (id == utteranceId) {
+                        scope.launch { onComplete?.invoke() }
+                    }
+                }
+            })
+
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
 
-            // Hard ceiling cancellation timer at maxDurationSec (5 seconds)
+            // Safe fallback timer based on word count (e.g. 300ms per word, min 4s, max 15s) in case TTS callback fails
+            val words = text.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+            val fallbackDelay = (words.size * 300L).coerceIn(4000L, 15000L)
             hardCeilingJob = scope.launch {
-                delay((maxDurationSec * 1000).toLong())
-                stop()
+                delay(fallbackDelay)
+                onComplete?.invoke()
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            onComplete?.invoke()
+        }
     }
 
     /**

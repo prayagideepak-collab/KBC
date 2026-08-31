@@ -160,8 +160,6 @@ fun QuizScreen(
                 hasBonusTime = state.hasBonusTime,
                 accumulatedBonusSeconds = state.accumulatedBonusSeconds,
                 bonusLostNotice = state.bonusLostNotice,
-                isReadOnlySession = state.isReadOnlySession,
-                readOnlyRemaining = state.readOnlySecondsRemaining,
                 isVoiceEnabled = isVoiceEnabled,
                 userName = userProfile.name,
                 onToggleVoice = { viewModel.toggleVoiceNarration() },
@@ -426,7 +424,7 @@ fun QuizScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Read Only Session Card (Active during first 5 seconds)
-                if (state.isReadOnlySession) {
+                if (state.phase == QuestionPhase.READING_WINDOW) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -451,14 +449,14 @@ fun QuizScreen(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.HourglassBottom,
+                                    imageVector = Icons.Default.VolumeUp,
                                     contentDescription = null,
                                     tint = GoldPrimary,
                                     modifier = Modifier.size(22.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Reading Window — 00:0${state.readOnlySecondsRemaining}",
+                                    text = if (isHi) "🔊 प्रश्न पढ़ा जा रहा है..." else "🔊 Reading question aloud...",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = GoldGlow,
                                         fontWeight = FontWeight.Bold,
@@ -471,9 +469,9 @@ fun QuizScreen(
 
                             Text(
                                 text = if (isHi)
-                                    "प्रश्न एवं तार्किक सुरागों को ध्यानपूर्वक पढ़ें। 5 सेकंड बाद विकल्प अनलॉक होंगे और मुख्य टाइमर शुरू होगा।"
-                                else
-                                    "Study the question and deductive clues carefully. Options and the main timer will unlock in 5 seconds.",
+                                    "कृपया ध्यानपूर्वक सुनें। वाचन समाप्त होने पर विकल्प और उत्तर टाइमर स्वतः शुरू हो जाएंगे।"
+                                    else
+                                    "Please listen carefully. Options and answer timer will appear automatically once reading is complete.",
                                 textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = TextSecondary,
@@ -484,7 +482,6 @@ fun QuizScreen(
                             Spacer(modifier = Modifier.height(10.dp))
 
                             LinearProgressIndicator(
-                                progress = { (5 - state.readOnlySecondsRemaining) / 5f },
                                 modifier = Modifier
                                     .fillMaxWidth(0.8f)
                                     .height(6.dp)
@@ -695,13 +692,13 @@ fun QuizScreen(
                     onUseAskExpert = { viewModel.useAskExpert() },
                     onUseFlipQuestion = { viewModel.useFlipQuestion() },
                     onUsePowerPaplu = { target -> viewModel.usePowerPaplu(target) },
-                    isEnabled = !state.isReadOnlySession
+                    isEnabled = state.phase != QuestionPhase.READING_WINDOW
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
                 // Lock-In Button ("ताला लगाएँ")
-                val canLockIn = state.selectedOptionIndex != null && !state.isLockedIn && !state.isReadOnlySession
+                val canLockIn = state.selectedOptionIndex != null && !state.isLockedIn && state.phase != QuestionPhase.READING_WINDOW
                 val isLocked = state.isLockedIn
 
                 Button(
@@ -729,7 +726,7 @@ fun QuizScreen(
                         text = when {
                             isLocked -> if (isHi) "🔒 उत्तर लॉक हो चुका है (LOCKED)" else "🔒 ANSWER LOCKED"
                             canLockIn -> if (isHi) "ताला लगाएँ (Lock Answer)" else "LOCK ANSWER"
-                            state.isReadOnlySession -> if (isHi) "प्रश्न ध्यान से पढ़ें (Read Carefully)" else "READ QUESTION FIRST"
+                            state.phase == QuestionPhase.READING_WINDOW -> if (isHi) "प्रश्न ध्यान से पढ़ें (Read Carefully)" else "READ QUESTION FIRST"
                             else -> if (isHi) "कृपया विकल्प चुनें (Select Option)" else "SELECT AN OPTION"
                         },
                         style = MaterialTheme.typography.titleSmall.copy(
@@ -952,8 +949,6 @@ fun QuizHeaderHud(
     hasBonusTime: Boolean = false,
     accumulatedBonusSeconds: Int = 0,
     bonusLostNotice: Boolean = false,
-    isReadOnlySession: Boolean = false,
-    readOnlyRemaining: Int = 0,
     isVoiceEnabled: Boolean,
     userName: String = "Challenger",
     onToggleVoice: () -> Unit,
@@ -1055,31 +1050,7 @@ fun QuizHeaderHud(
 
             // Timer & Actions
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isReadOnlySession) {
-                    Box(
-                        modifier = Modifier
-                            .background(GoldPrimary.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                            .border(1.2.dp, GoldPrimary, RoundedCornerShape(12.dp))
-                            .padding(horizontal = 8.dp, vertical = 5.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.HourglassBottom,
-                                contentDescription = null,
-                                tint = GoldPrimary,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "00:0$readOnlyRemaining",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = GoldGlow
-                            )
-                        }
-                    }
-                } else if (timerMode == TimerMode.UNLIMITED_ELAPSED) {
+                if (timerMode == TimerMode.UNLIMITED_ELAPSED) {
                     val minutes = elapsedThinkingSeconds / 60
                     val seconds = elapsedThinkingSeconds % 60
                     val formattedTime = String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
