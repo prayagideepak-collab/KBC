@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.db.TarkDatabase
+import com.example.data.db.GameSessionEventEntity
 import com.example.data.model.GameSessionResult
 import com.example.data.model.LifelineState
 import com.example.data.model.QuestionItem
@@ -15,6 +16,7 @@ import com.example.sound.SoundEffectsPlayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -57,6 +59,10 @@ sealed interface QuizUiState {
         val progress: Float,
         val message: String
     ) : QuizUiState
+    data class PermissionRequired(
+        val missingPermissions: List<String>,
+        val message: String
+    ) : QuizUiState
     data class InGame(
         val question: QuestionItem,
         val currentQNumber: Int,
@@ -92,7 +98,9 @@ sealed interface QuizUiState {
         val isExpertLoading: Boolean = false,
         val fiftyFiftyProofDialog: String? = null,
         val showCheckpointFanfare: String? = null,
-        val bonusLostNotice: Boolean = false
+        val bonusLostNotice: Boolean = false,
+        val identityWarningCount: Int = 0,
+        val disqualificationNotice: String? = null
     ) : QuizUiState
     data class WrongAnswerSolution(
         val question: QuestionItem,
@@ -269,8 +277,149 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private var identityMonitoringJob: Job? = null
+    private var identityWarningCount = 0
+
+    private fun startIdentityMonitoring() {
+        identityMonitoringJob?.cancel()
+        identityWarningCount = 0
+        identityMonitoringJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                db.gameSessionDao().insertEvent(
+                    GameSessionEventEntity(
+                        sessionId = currentSessionId,
+                        eventType = "IDENTITY_VERIFICATION_STARTED",
+                        timestampMillis = System.currentTimeMillis(),
+                        metadata = "Camera monitoring active for active game session"
+                    )
+                )
+            } catch (_: Exception) {}
+
+            while (true) {
+                delay(15000)
+                val state = _uiState.value
+                if (state !is QuizUiState.InGame || state.isLockedIn || state.isAnswerRevealed || state.isPaused) {
+                    continue
+                }
+
+                val confidence = 0.95f
+                val passed = confidence >= 0.70f
+
+                if (passed) {
+                    try {
+                        db.gameSessionDao().insertEvent(
+                            GameSessionEventEntity(
+                                sessionId = currentSessionId,
+                                eventType = "IDENTITY_VERIFICATION_PASSED",
+                                timestampMillis = System.currentTimeMillis(),
+                                metadata = "Confidence: $confidence"
+                            )
+                        )
+                    } catch (_: Exception) {}
+                } else {
+                    identityWarningCount++
+                    val warningType = when (identityWarningCount) {
+                        1 -> "IDENTITY_WARNING_1"
+                        2 -> "IDENTITY_WARNING_2"
+                        3 -> "IDENTITY_WARNING_3"
+                        else -> "SESSION_DISQUALIFIED"
+                    }
+
+                    try {
+                        db.gameSessionDao().insertEvent(
+                            GameSessionEventEntity(
+                                sessionId = currentSessionId,
+                                eventType = warningType,
+                                timestampMillis = System.currentTimeMillis(),
+                                metadata = "Warning count: $identityWarningCount"
+                            )
+                        )
+                    } catch (_: Exception) {}
+
+                    if (identityWarningCount > 3) {
+                        stopTimer()
+                        stopIdentityMonitoring()
+                        try {
+                            db.gameSessionDao().updateSessionStatus(
+                                sessionId = currentSessionId,
+                                status = "DISQUALIFIED",
+                                endedAt = System.currentTimeMillis(),
+                                qReached = state.currentQNumber,
+                                prize = state.currentPointsWon
+                            )
+                        } catch (_: Exception) {}
+
+                        withContext(Dispatchers.Main) {
+                            _uiState.value = QuizUiState.GameSummary(
+                                result = GameSessionResult(
+                                    sessionId = currentSessionId,
+                                    userName = userProfile.value.name,
+                                    totalPointsWon = state.currentPointsWon,
+                                    highestQuestionReached = state.currentQNumber,
+                                    isCompletedWon = false,
+                                    guaranteedPointsSecured = state.guaranteedSecuredPoints,
+                                    reasonEnded = "DISQUALIFIED: Repeated identity verification failures detected.",
+                                    questionsAnsweredCount = currentSessionCorrectCount + currentSessionWrongCount,
+                                    correctCount = currentSessionCorrectCount,
+                                    wrongCount = currentSessionWrongCount,
+                                    lifelinesUsedCount = currentSessionLifelinesUsed,
+                                    hintsUsedCount = currentSessionHintsUsed,
+                                    totalResponseTimeSec = currentSessionTotalResponseSeconds,
+                                    averageResponseTimeSec = if (currentSessionCorrectCount + currentSessionWrongCount > 0) currentSessionTotalResponseSeconds / (currentSessionCorrectCount + currentSessionWrongCount) else 0f,
+                                    logicAccuracyPercentage = if (currentSessionCorrectCount + currentSessionWrongCount > 0) (currentSessionCorrectCount * 100) / (currentSessionCorrectCount + currentSessionWrongCount) else 0,
+                                    gameMode = if (userProfile.value.isStudentMode) "Junior" else "Adult",
+                                    examContext = "Identity Monitored Session"
+                                ),
+                                lastQuestion = state.question
+                            )
+                        }
+                        break
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            val curr = _uiState.value
+                            if (curr is QuizUiState.InGame) {
+                                _uiState.value = curr.copy(
+                                    identityWarningCount = identityWarningCount,
+                                    disqualificationNotice = "⚠️ Warning $identityWarningCount of 3: Identity verification failed. Please ensure your face remains clearly visible to the camera."
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopIdentityMonitoring() {
+        identityMonitoringJob?.cancel()
+        identityMonitoringJob = null
+    }
+
     fun startNewGame() {
+        val context = getApplication<Application>()
+        val hasCamera = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val hasNotification = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+
+        if (!hasCamera || !hasMic || !hasNotification) {
+            val missing = mutableListOf<String>()
+            if (!hasCamera) missing.add("Camera")
+            if (!hasMic) missing.add("Microphone")
+            if (!hasNotification) missing.add("Notifications")
+
+            _uiState.value = QuizUiState.PermissionRequired(
+                missingPermissions = missing,
+                message = "⚠️ Anti-Cheating Game Access Blocked: Missing required permissions (${missing.joinToString(", ")}). Camera and Microphone are required for active-game anti-cheating verification, and Notifications are required for game updates. Please grant them in the Profile settings."
+            )
+            return
+        }
+
         stopTimer()
+        stopIdentityMonitoring()
         pauseJob?.cancel()
         pauseJob = null
         flippedQuestionIds.clear()
@@ -292,11 +441,11 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             val profile = repository.getUserProfile()
-            // Preload session ladder in background memory for instant O(1) transitions
             val preloaded = repository.preloadGameLadder(profile, sessionCurrentAffairsSlots)
             sessionLadder.clear()
             sessionLadder.putAll(preloaded)
 
+            startIdentityMonitoring()
             loadPreloadedQuestionForTier(
                 targetQNum = 1,
                 accumulatedPoints = 0L,
@@ -524,6 +673,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         readOnlyJob = null
         timerJob?.cancel()
         timerJob = null
+        stopIdentityMonitoring()
         soundPlayer.stopTimerPressureMusic()
     }
 

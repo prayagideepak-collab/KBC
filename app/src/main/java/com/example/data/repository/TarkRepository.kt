@@ -150,7 +150,7 @@ class TarkRepository(
         )
 
         // Register in Room Database
-        registerQuestionInDb(selectedQuestion, userProfile.id)
+        registerQuestionInDb(selectedQuestion, userProfile.id, userProfile.languageMode)
 
         selectedQuestion
     }
@@ -168,7 +168,7 @@ class TarkRepository(
             excludedFingerprints = servedFingerprints
         )
 
-        registerQuestionInDb(finalQuestion)
+        registerQuestionInDb(finalQuestion, userProfile.id, userProfile.languageMode)
         return finalQuestion
     }
 
@@ -260,15 +260,16 @@ class TarkRepository(
         userProfileDao.saveUserProfile(updatedEntity)
     }
 
-    private suspend fun registerQuestionInDb(question: QuestionItem, profileId: String = "primary_user") {
+    private suspend fun registerQuestionInDb(question: QuestionItem, profileId: String = "primary_user", languageMode: String = "HINDI") {
         try {
+            val validLang = languageMode.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" }
             val entity = QuestionRegistryEntity(
                 id = "${question.id}_${profileId}_${System.currentTimeMillis()}",
                 profileId = profileId,
                 questionId = question.id,
                 semanticFingerprint = question.semanticFingerprint,
-                canonicalQuestion = question.questionEnglish,
-                languageMode = "HINDI",
+                canonicalQuestion = question.questionEnglish.ifBlank { question.questionHindi },
+                languageMode = validLang,
                 difficultyTier = question.qNumber,
                 questionVersion = 1,
                 usedAt = System.currentTimeMillis()

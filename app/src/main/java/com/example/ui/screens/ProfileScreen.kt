@@ -82,6 +82,12 @@ import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.viewmodel.QuizViewModel
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -90,6 +96,40 @@ fun ProfileScreen(
     modifier: Modifier = Modifier
 ) {
     val currentProfile by viewModel.userProfile.collectAsState()
+    val context = LocalContext.current
+    var hasCameraPermission by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+    }
+    var hasMicrophonePermission by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
+    }
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasCameraPermission = isGranted
+    }
+
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasMicrophonePermission = isGranted
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+    }
 
     // 1. Profile Mode: "Adult" vs "Junior"
     var isJuniorMode by remember(currentProfile) {
@@ -854,6 +894,160 @@ fun ProfileScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            // Permission Request Card (Camera, Microphone & Notifications)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("permission_card"),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = NavyCard)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "कैमरा, माइक्रोफोन और सूचना अनुमति (Permissions & Security)",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = GoldPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Privacy Disclosure Notice (Steps 79 & 80)
+                    Text(
+                        text = "Camera and microphone access are required for the game's anti-cheating system. During an active game, the camera may be used to verify that the same participant remains in the session, while the microphone may be used to detect possible external verbal assistance. This monitoring is limited to active gameplay. Temporary anti-cheating media/data is deleted when the game/session ends, and it is not retained for unrelated purposes. Notification access is used to provide application notifications.",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Camera Permission
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "कैमरा अनुमति (Camera Access)",
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Required for profile verification and active-game anti-cheating monitoring.",
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                            modifier = Modifier.testTag("grant_camera_button"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (hasCameraPermission) SuccessGreen else GoldPrimary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = if (hasCameraPermission) "Granted ✓" else "Grant",
+                                color = NavyDeepest,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Microphone Permission
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "माइक्रोफोन अनुमति (Microphone Access)",
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Required for anti-cheating audio verification during active gameplay.",
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                            modifier = Modifier.testTag("grant_microphone_button"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (hasMicrophonePermission) SuccessGreen else GoldPrimary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = if (hasMicrophonePermission) "Granted ✓" else "Grant",
+                                color = NavyDeepest,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Notification Permission
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "सूचना अनुमति (Notifications)",
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Notification access is used to show game and application notifications.",
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            },
+                            modifier = Modifier.testTag("grant_notification_button"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (hasNotificationPermission) SuccessGreen else GoldPrimary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = if (hasNotificationPermission) "Granted ✓" else "Grant",
+                                color = NavyDeepest,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (validationError != null) {
                 Spacer(modifier = Modifier.height(12.dp))

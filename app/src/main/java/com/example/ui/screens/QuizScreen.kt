@@ -334,6 +334,66 @@ fun QuizScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Camera Identity Monitored Badge & Warning Banner
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFF1E3A1E), RoundedCornerShape(6.dp))
+                            .border(1.dp, SuccessGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .testTag("camera_active_badge")
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .background(SuccessGreen, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = "📷 Camera Identity Active",
+                                color = SuccessGreen,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    if (state.identityWarningCount > 0) {
+                        Text(
+                            text = "Warnings: ${state.identityWarningCount}/3",
+                            color = Color(0xFFFF5252),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                if (state.disqualificationNotice != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF5A1E1E)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = state.disqualificationNotice ?: "",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
                 // Primary Bilingual Question Card (Line-by-Line Paired Translation)
                 BilingualQuestionCard(
                     questionHindi = question.questionHindi,

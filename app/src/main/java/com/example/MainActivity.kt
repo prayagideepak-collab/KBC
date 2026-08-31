@@ -28,6 +28,26 @@ import com.example.ui.theme.NavyBackground
 import com.example.ui.theme.TarkShastraTheme
 import com.example.ui.viewmodel.QuizUiState
 import com.example.ui.viewmodel.QuizViewModel
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 
 class MainActivity : ComponentActivity() {
     private val quizViewModel: QuizViewModel by viewModels()
@@ -105,6 +125,55 @@ fun TarkAppContent(
                 viewModel = viewModel,
                 modifier = modifier
             )
+        }
+        is QuizUiState.PermissionRequired -> {
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF0A0F1D))
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF162038))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "🔒 Security & Permissions Required",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = Color(0xFFFFD700),
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = state.message,
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Button(
+                            onClick = { viewModel.navigateToProfile() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700))
+                        ) {
+                            Text(text = "Go to Profile Settings & Grant Permissions", color = Color(0xFF0A0F1D), fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = { viewModel.navigateToHome() }
+                        ) {
+                            Text(text = "Back to Home", color = Color(0xFFA0AEC0))
+                        }
+                    }
+                }
+            }
         }
     }
 }
