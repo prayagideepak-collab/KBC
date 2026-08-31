@@ -256,32 +256,63 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = QuizUiState.ItProfessionalHubScreen
     }
 
+    private var isStartingGame = false
+
     fun saveProfile(updatedProfile: UserProfile) {
         viewModelScope.launch {
-            _uiState.value = QuizUiState.ProfileInstalling(0.15f, "प्रोफ़ाइल सहेजी जा रही है (Saving profile)...")
-            delay(500)
-            repository.saveUserProfile(updatedProfile)
-
-            _uiState.value = QuizUiState.ProfileInstalling(0.35f, "लाइव करंट अफेयर्स और ज्ञान वैक्टर सिंक हो रहे हैं...")
-            delay(700)
             try {
-                repository.syncCurrentAffairsSilently(updatedProfile)
-            } catch (_: Exception) {}
+                android.util.Log.d("TarkShastra", "START_GAME_REQUEST: Profile save initiated for ${updatedProfile.name}")
+                _uiState.value = QuizUiState.ProfileInstalling(0.15f, "प्रोफ़ाइल सहेजी जा रही है (Saving profile)...")
+                delay(400)
+                repository.saveUserProfile(updatedProfile)
+                android.util.Log.d("TarkShastra", "PROFILE_VALIDATED: Profile successfully persisted")
 
-            _uiState.value = QuizUiState.ProfileInstalling(0.65f, "ऑफ़लाइन उपयोग के लिए प्रश्न और उत्तर बैंक तैयार किए जा रहे हैं...")
-            delay(900)
+                _uiState.value = QuizUiState.ProfileInstalling(0.35f, "लाइव करंट अफेयर्स और ज्ञान वैक्टर सिंक हो रहे हैं...")
+                delay(500)
+                try {
+                    repository.syncCurrentAffairsSilently(updatedProfile)
+                } catch (e: Exception) {
+                    android.util.Log.e("TarkShastra", "BANK_DOWNLOAD_FAILED: Current affairs sync error: ${e.message}")
+                }
 
-            try {
-                repository.preloadGameLadder(updatedProfile, setOf(2, 8))
-            } catch (_: Exception) {}
+                _uiState.value = QuizUiState.ProfileInstalling(0.65f, "ऑफ़लाइन उपयोग के लिए प्रश्न और उत्तर बैंक तैयार किए जा रहे हैं...")
+                android.util.Log.d("TarkShastra", "BANK_CHECK_STARTED / BANK_DOWNLOAD_STARTED")
+                delay(600)
 
-            _uiState.value = QuizUiState.ProfileInstalling(0.9f, "कठिनाई और डुप्लिकेट सत्यापन पूर्ण हो रहा है...")
-            delay(600)
+                try {
+                    val preloaded = repository.preloadGameLadder(updatedProfile, setOf(2, 8))
+                    if (preloaded.isEmpty()) {
+                        android.util.Log.e("TarkShastra", "BANK_EMPTY: Preloaded bank is empty")
+                        _uiState.value = QuizUiState.PermissionRequired(
+                            listOf(),
+                            "⚠️ Question Bank Error: Generated question bank is empty. Please try again."
+                        )
+                        return@launch
+                    }
+                    android.util.Log.d("TarkShastra", "BANK_DOWNLOAD_COMPLETED & BANK_VALIDATED: Bank size ${preloaded.size}")
+                } catch (e: Exception) {
+                    android.util.Log.e("TarkShastra", "BANK_DOWNLOAD_FAILED: ${e.message}")
+                    _uiState.value = QuizUiState.PermissionRequired(
+                        listOf(),
+                        "⚠️ Question Bank Download Failed: ${e.message}. Please check connection and try again."
+                    )
+                    return@launch
+                }
 
-            _uiState.value = QuizUiState.ProfileInstalling(1.0f, "100% ऑफ़लाइन गेम बैंक तैयार है! लॉन्च हो रहा है...")
-            delay(600)
+                _uiState.value = QuizUiState.ProfileInstalling(0.9f, "कठिनाई और डुप्लिकेट सत्यापन पूर्ण हो रहा है...")
+                delay(400)
 
-            _uiState.value = QuizUiState.HomeScreen
+                _uiState.value = QuizUiState.ProfileInstalling(1.0f, "100% ऑफ़लाइन गेम बैंक तैयार है! लॉन्च हो रहा है...")
+                delay(400)
+
+                startNewGame()
+            } catch (e: Exception) {
+                android.util.Log.e("TarkShastra", "SESSION_CREATION_FAILED or START_GAME_FAILED: ${e.message}")
+                _uiState.value = QuizUiState.PermissionRequired(
+                    listOf(),
+                    "⚠️ Game Start Error: ${e.message}. Please retry."
+                )
+            }
         }
     }
 
@@ -312,60 +343,91 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startNewGame() {
-        val context = getApplication<Application>()
-        val hasCamera = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        val hasNotification = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-
-        if (!hasCamera || !hasMic || !hasNotification) {
-            val missing = mutableListOf<String>()
-            if (!hasCamera) missing.add("Camera")
-            if (!hasMic) missing.add("Microphone")
-            if (!hasNotification) missing.add("Notifications")
-
-            _uiState.value = QuizUiState.PermissionRequired(
-                missingPermissions = missing,
-                message = "⚠️ Anti-Cheating Game Access Blocked: Missing required permissions (${missing.joinToString(", ")}). Camera and Microphone are required for active-game anti-cheating verification, and Notifications are required for game updates. Please grant them in the Profile settings."
-            )
-            return
-        }
-
-        cleanupSessionResources()
-        stopIdentityMonitoring()
-        flippedQuestionIds.clear()
-        currentSessionId = generateSessionId()
-        currentSessionLifelinesUsed = 0
-        currentSessionHintsUsed = 0
-        currentSessionWrongCount = 0
-        currentSessionTotalResponseSeconds = 0f
-        currentSessionStartTime = System.currentTimeMillis()
-        currentSessionCorrectCount = 0
-        currentConsecutiveBonusSeconds = 0
-
-        // Randomize Current Affairs slots satisfying: 1 in Q1-5, 1 in Q6-10
-        val caSlot1 = (1..5).random()
-        val caSlot2 = (6..10).random()
-        sessionCurrentAffairsSlots = setOf(caSlot1, caSlot2)
-
-        _uiState.value = QuizUiState.QuestionLoading
+        if (isStartingGame) return
+        isStartingGame = true
 
         viewModelScope.launch {
-            val profile = repository.getUserProfile()
-            val preloaded = repository.preloadGameLadder(profile, sessionCurrentAffairsSlots)
-            sessionLadder.clear()
-            sessionLadder.putAll(preloaded)
+            try {
+                android.util.Log.d("TarkShastra", "START_GAME_REQUEST invoked")
+                val context = getApplication<Application>()
+                val hasCamera = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                val hasNotification = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                } else {
+                    true
+                }
 
-            startIdentityMonitoring()
-            loadPreloadedQuestionForTier(
-                targetQNum = 1,
-                accumulatedPoints = 0L,
-                guaranteedPoints = 0L,
-                lifelines = LifelineState()
-            )
+                if (!hasCamera || !hasMic || !hasNotification) {
+                    val missing = mutableListOf<String>()
+                    if (!hasCamera) missing.add("Camera")
+                    if (!hasMic) missing.add("Microphone")
+                    if (!hasNotification) missing.add("Notifications")
+
+                    _uiState.value = QuizUiState.PermissionRequired(
+                        missingPermissions = missing,
+                        message = "⚠️ Anti-Cheating Game Access Blocked: Missing required permissions (${missing.joinToString(", ")}). Camera and Microphone are required for active-game anti-cheating verification, and Notifications are required for game updates. Please grant them in the Profile settings."
+                    )
+                    isStartingGame = false
+                    return@launch
+                }
+
+                android.util.Log.d("TarkShastra", "PROFILE_VALIDATED for game start")
+                cleanupSessionResources()
+                stopIdentityMonitoring()
+                flippedQuestionIds.clear()
+                currentSessionId = generateSessionId()
+                android.util.Log.d("TarkShastra", "SESSION_CREATED: sessionId=$currentSessionId")
+
+                currentSessionLifelinesUsed = 0
+                currentSessionHintsUsed = 0
+                currentSessionWrongCount = 0
+                currentSessionTotalResponseSeconds = 0f
+                currentSessionStartTime = System.currentTimeMillis()
+                currentSessionCorrectCount = 0
+                currentConsecutiveBonusSeconds = 0
+
+                // Randomize Current Affairs slots satisfying: 1 in Q1-5, 1 in Q6-10
+                val caSlot1 = (1..5).random()
+                val caSlot2 = (6..10).random()
+                sessionCurrentAffairsSlots = setOf(caSlot1, caSlot2)
+
+                _uiState.value = QuizUiState.QuestionLoading
+                android.util.Log.d("TarkShastra", "BANK_CHECK_STARTED & BANK_DOWNLOAD_STARTED")
+
+                val profile = repository.getUserProfile()
+                val preloaded = repository.preloadGameLadder(profile, sessionCurrentAffairsSlots)
+                if (preloaded.isEmpty() || preloaded[1] == null) {
+                    android.util.Log.e("TarkShastra", "BANK_EMPTY or FIRST_QUESTION_FAILED")
+                    _uiState.value = QuizUiState.PermissionRequired(
+                        listOf(),
+                        "⚠️ Game Start Error: Could not load question bank or first question."
+                    )
+                    isStartingGame = false
+                    return@launch
+                }
+
+                android.util.Log.d("TarkShastra", "BANK_VALIDATED & FIRST_QUESTION_READY")
+                sessionLadder.clear()
+                sessionLadder.putAll(preloaded)
+
+                startIdentityMonitoring()
+                android.util.Log.d("TarkShastra", "GAME_NAVIGATION: Opening Game screen for Q1")
+                loadPreloadedQuestionForTier(
+                    targetQNum = 1,
+                    accumulatedPoints = 0L,
+                    guaranteedPoints = 0L,
+                    lifelines = LifelineState()
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("TarkShastra", "GAME_NAVIGATION_FAILED: ${e.message}")
+                _uiState.value = QuizUiState.PermissionRequired(
+                    listOf(),
+                    "⚠️ Game Start Error: ${e.message}"
+                )
+            } finally {
+                isStartingGame = false
+            }
         }
     }
 
