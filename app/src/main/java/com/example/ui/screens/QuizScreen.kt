@@ -322,12 +322,40 @@ fun QuizScreen(
                             }
                         }
 
-                        Text(
-                            text = "Tier: ${question.difficultyTitle}",
-                            color = InfoCyan,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        val tierMeta = com.example.data.api.GeminiApiClient.getTierDetails(state.currentQNumber)
+                        val difficultyColor = when {
+                            tierMeta.isCheckpoint -> CheckpointGold
+                            state.currentQNumber <= 2 -> InfoCyan
+                            state.currentQNumber <= 5 -> SuccessGreen
+                            state.currentQNumber <= 9 -> GoldPrimary
+                            state.currentQNumber <= 12 -> CheckpointSilver
+                            state.currentQNumber <= 15 -> PurpleAccent
+                            else -> AlertRed
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .background(difficultyColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                .border(1.dp, difficultyColor, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .testTag("difficulty_badge_${state.currentQNumber}")
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (tierMeta.isCheckpoint) Icons.Default.EmojiEvents else Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = difficultyColor,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Level ${state.currentQNumber}/17 • ${tierMeta.difficultyTitle}",
+                                    color = difficultyColor,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
 
