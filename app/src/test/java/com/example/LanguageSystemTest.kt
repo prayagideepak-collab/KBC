@@ -46,13 +46,19 @@ class LanguageSystemTest {
     )
 
     @Test
-    fun `test user profile default language mode is Hindi`() {
+    fun `test user profile default language mode is English`() {
         val profile = UserProfile()
-        assertEquals("HINDI", profile.languageMode.uppercase())
+        assertEquals("ENGLISH", profile.languageMode.uppercase())
+    }
+
+    @Test
+    fun `test null language mode falls back to English`() {
+        val resolved = LanguageResolver.validateLanguageMode(null)
+        assertEquals("ENGLISH", resolved)
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `test invalid language mode throws exception instead of silent fallback`() {
+    fun `test invalid language mode throws exception`() {
         LanguageResolver.validateLanguageMode("UNKNOWN_LANG")
     }
 

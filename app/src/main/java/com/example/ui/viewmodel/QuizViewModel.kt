@@ -148,7 +148,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     val languageMode: StateFlow<String> = userProfile.map { it.languageMode.uppercase() }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = "HINDI"
+        initialValue = "ENGLISH"
     )
 
     private var timerJob: Job? = null
@@ -212,9 +212,9 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleLanguage() {
         val current = languageMode.value.uppercase()
         val next = when (current) {
-            "HINDI" -> "ENGLISH"
             "ENGLISH" -> "BILINGUAL"
-            else -> "HINDI"
+            "BILINGUAL" -> "HINDI"
+            else -> "ENGLISH"
         }
         setLanguage(next)
     }
@@ -222,7 +222,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     fun setLanguage(lang: String) {
         viewModelScope.launch {
             val current = userProfile.value
-            val normalized = lang.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "HINDI" }
+            val normalized = lang.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "ENGLISH" }
             val updated = current.copy(languageMode = normalized)
             repository.saveUserProfile(updated)
         }

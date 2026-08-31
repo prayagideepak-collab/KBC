@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AppMetadataEntity::class,
         CurrentAffairEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class TarkDatabase : RoomDatabase() {
@@ -151,6 +151,20 @@ abstract class TarkDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    UPDATE user_profile_table 
+                    SET languageMode = 'ENGLISH' 
+                    WHERE languageMode NOT IN ('HINDI', 'ENGLISH', 'BILINGUAL') OR languageMode IS NULL OR languageMode = ''
+                """)
+                database.execSQL("""
+                    INSERT OR REPLACE INTO `app_metadata_table` (`versionCode`, `versionName`, `updatedAt`, `releaseNotes`)
+                    VALUES (10, '1.5.0', ${System.currentTimeMillis()}, 'English Language Default Migration')
+                """)
+            }
+        }
+
         fun getDatabase(context: Context): TarkDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -158,7 +172,7 @@ abstract class TarkDatabase : RoomDatabase() {
                     TarkDatabase::class.java,
                     "tark_shastra_database.db"
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                     .build()
                 INSTANCE = instance
                 instance

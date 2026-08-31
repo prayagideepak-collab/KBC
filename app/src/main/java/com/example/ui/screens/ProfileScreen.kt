@@ -140,7 +140,7 @@ fun ProfileScreen(
     var selectedState by remember(currentProfile) { mutableStateOf(currentProfile.state) }
     var selectedLanguage by remember(currentProfile) { 
         val lang = currentProfile.languageMode.uppercase()
-        mutableStateOf(if (lang in listOf("HINDI", "ENGLISH", "BILINGUAL")) lang else "HINDI")
+        mutableStateOf(if (lang in listOf("HINDI", "ENGLISH", "BILINGUAL")) lang else "ENGLISH")
     }
     var upiId by remember(currentProfile) { mutableStateOf<String>(currentProfile.upiId) }
     var validationError by remember { mutableStateOf<String?>(null) }

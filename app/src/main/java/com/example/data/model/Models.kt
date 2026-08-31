@@ -11,7 +11,7 @@ data class UserProfile(
     val studentClass: String = "Class 8",
     val isStudentMode: Boolean = false,
     val interests: List<String> = listOf("Logical Reasoning", "General Science", "History", "Puzzles"),
-    val languageMode: String = "HINDI", // "HINDI", "ENGLISH", "BILINGUAL"
+    val languageMode: String = "ENGLISH", // "HINDI", "ENGLISH", "BILINGUAL"
     val upiId: String = "",
     val profileVector: KnowledgeProfileVector = KnowledgeProfileVector()
 )

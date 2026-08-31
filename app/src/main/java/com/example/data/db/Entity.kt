@@ -31,7 +31,7 @@ data class UserProfileEntity(
     val name: String,
     val age: Int,
     val state: String,
-    val languageMode: String = "HINDI", // HINDI, ENGLISH, BILINGUAL
+    val languageMode: String = "ENGLISH", // HINDI, ENGLISH, BILINGUAL
     val upiId: String? = "",
     val educationLevel: String,
     val occupation: String,

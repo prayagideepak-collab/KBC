@@ -49,7 +49,7 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
      * Calculates dynamic speech rate based on word count so full question is narrated within <= 5 sec.
      * A hard timeout forcibly stops TTS after 5.0 seconds.
      */
-    fun speakQuestionBounded(text: String, languageMode: String = "HINDI", onComplete: (() -> Unit)? = null) {
+    fun speakQuestionBounded(text: String, languageMode: String = "ENGLISH", onComplete: (() -> Unit)? = null) {
         if (!isReady || tts == null) {
             onComplete?.invoke()
             return
@@ -156,7 +156,7 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
     /**
      * Reads option within active game timer. Does not stop or pause game timer.
      */
-    fun speakOptionInGameTimer(text: String, languageMode: String = "HINDI") {
+    fun speakOptionInGameTimer(text: String, languageMode: String = "ENGLISH") {
         if (!isReady || tts == null) return
         try {
             val locale = getLocaleForMode(languageMode)
@@ -171,7 +171,7 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
      * Announces result with user's authoritative profile name.
      * e.g. "Deepak, आपका जवाब सही है।" or "Deepak, your answer is correct."
      */
-    fun speakResultAnnouncement(userName: String, isCorrect: Boolean, languageMode: String = "HINDI") {
+    fun speakResultAnnouncement(userName: String, isCorrect: Boolean, languageMode: String = "ENGLISH") {
         if (!isReady || tts == null) return
         stop()
 
@@ -198,7 +198,7 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
      * Wrong Answer Educational Solution Narration.
      * Operates at a natural, teacher-guided pace without speed limits or pressure.
      */
-    fun speakSolutionNatural(text: String, languageMode: String = "HINDI") {
+    fun speakSolutionNatural(text: String, languageMode: String = "ENGLISH") {
         if (!isReady || tts == null) return
         stop()
 

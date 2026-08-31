@@ -17,7 +17,7 @@ data class ResolvedQuestionContent(
 object LanguageResolver {
 
     fun validateLanguageMode(mode: String?): String {
-        val normalized = mode?.uppercase()?.trim() ?: "HINDI"
+        val normalized = mode?.uppercase()?.trim() ?: "ENGLISH"
         require(normalized in listOf("HINDI", "ENGLISH", "BILINGUAL")) {
             "Invalid or unauthorized language mode: '$mode'. Allowed values: HINDI, ENGLISH, BILINGUAL."
         }
