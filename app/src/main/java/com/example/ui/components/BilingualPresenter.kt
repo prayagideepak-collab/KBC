@@ -454,8 +454,6 @@ fun BilingualOptionGridCard(
 
     val targetBgColor = when {
         isDiscarded -> NavyDeepest.copy(alpha = 0.35f)
-        isAnswerRevealed && isCorrect -> SuccessGreen.copy(alpha = 0.35f)
-        isAnswerRevealed && isSelected && !isCorrect -> AlertRed.copy(alpha = 0.35f)
         isSelected && isLockedIn -> GoldDark.copy(alpha = 0.45f)
         isSelected -> GoldPrimary.copy(alpha = 0.22f)
         else -> NavyCard
@@ -463,8 +461,6 @@ fun BilingualOptionGridCard(
 
     val targetBorderColor = when {
         isDiscarded -> NavyBorder.copy(alpha = 0.25f)
-        isAnswerRevealed && isCorrect -> SuccessGreen
-        isAnswerRevealed && isSelected && !isCorrect -> AlertRed
         isSelected -> GoldPrimary
         else -> NavyBorder.copy(alpha = 0.8f)
     }
@@ -500,8 +496,6 @@ fun BilingualOptionGridCard(
                         .background(
                             when {
                                 isDiscarded -> NavyDeepest
-                                isAnswerRevealed && isCorrect -> SuccessGreen
-                                isAnswerRevealed && isSelected && !isCorrect -> AlertRed
                                 isSelected -> GoldPrimary
                                 else -> NavyCardElevated
                             },
@@ -515,25 +509,9 @@ fun BilingualOptionGridCard(
                         fontSize = 12.sp,
                         color = when {
                             isDiscarded -> TextMuted
-                            isSelected || (isAnswerRevealed && isCorrect) -> NavyDeepest
+                            isSelected -> NavyDeepest
                             else -> GoldGlow
                         }
-                    )
-                }
-
-                if (isAnswerRevealed && isCorrect) {
-                    Text(
-                        text = "✓ सही",
-                        color = SuccessGreen,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
-                    )
-                } else if (isAnswerRevealed && isSelected && !isCorrect) {
-                    Text(
-                        text = "✗ गलत",
-                        color = AlertRed,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
                     )
                 }
             }

@@ -57,40 +57,99 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
         stop()
 
         try {
-            val locale = getLocaleForMode(languageMode)
-            tts?.language = locale
-            tts?.setSpeechRate(1.0f) // Normal comfortable speech rate
-            tts?.setPitch(1.0f)
+            val isBilingual = languageMode.uppercase() == "BILINGUAL"
+            if (isBilingual && text.contains("\n")) {
+                val parts = text.split("\n", limit = 2)
+                val hindiPart = parts.getOrNull(0) ?: text
+                val englishPart = parts.getOrNull(1) ?: ""
+                speakSequential(hindiPart, englishPart, onComplete)
+            } else {
+                val locale = getLocaleForMode(languageMode)
+                tts?.language = locale
+                tts?.setSpeechRate(1.0f) // Normal comfortable speech rate
+                tts?.setPitch(1.0f)
 
-            val utteranceId = "Tark_Q_${System.currentTimeMillis()}"
-            val isCompleted = AtomicBoolean(false)
+                val utteranceId = "Tark_Q_${System.currentTimeMillis()}"
+                val isCompleted = AtomicBoolean(false)
 
-            val notifyComplete = {
-                if (isCompleted.compareAndSet(false, true)) {
-                    scope.launch { onComplete?.invoke() }
-                }
-            }
-
-            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                override fun onStart(id: String?) {}
-                override fun onDone(id: String?) {
-                    if (id == utteranceId) {
-                        notifyComplete()
+                val notifyComplete = {
+                    if (isCompleted.compareAndSet(false, true)) {
+                        scope.launch { onComplete?.invoke() }
                     }
                 }
-                override fun onError(id: String?) {
-                    if (id == utteranceId) {
-                        notifyComplete()
-                    }
-                }
-            })
 
-            val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-            if (result == TextToSpeech.ERROR) {
-                notifyComplete()
+                tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                    override fun onStart(id: String?) {}
+                    override fun onDone(id: String?) {
+                        if (id == utteranceId) {
+                            notifyComplete()
+                        }
+                    }
+                    override fun onError(id: String?) {
+                        if (id == utteranceId) {
+                            notifyComplete()
+                        }
+                    }
+                })
+
+                val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+                if (result == TextToSpeech.ERROR) {
+                    notifyComplete()
+                }
             }
         } catch (_: Exception) {
             onComplete?.invoke()
+        }
+    }
+
+    private fun speakSequential(hindiText: String, englishText: String, onComplete: (() -> Unit)?) {
+        val utteranceHi = "Tark_Hi_${System.currentTimeMillis()}"
+        val utteranceEn = "Tark_En_${System.currentTimeMillis()}"
+        val isCompleted = AtomicBoolean(false)
+
+        val notifyComplete = {
+            if (isCompleted.compareAndSet(false, true)) {
+                scope.launch { onComplete?.invoke() }
+            }
+        }
+
+        tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+            override fun onStart(id: String?) {}
+            override fun onDone(id: String?) {
+                if (id == utteranceHi) {
+                    try {
+                        tts?.language = Locale.US
+                        tts?.speak(englishText, TextToSpeech.QUEUE_FLUSH, null, utteranceEn)
+                    } catch (_: Exception) {
+                        notifyComplete()
+                    }
+                } else if (id == utteranceEn) {
+                    notifyComplete()
+                }
+            }
+            override fun onError(id: String?) {
+                if (id == utteranceHi) {
+                    try {
+                        tts?.language = Locale.US
+                        tts?.speak(englishText, TextToSpeech.QUEUE_FLUSH, null, utteranceEn)
+                    } catch (_: Exception) {
+                        notifyComplete()
+                    }
+                } else if (id == utteranceEn) {
+                    notifyComplete()
+                }
+            }
+        })
+
+        try {
+            tts?.language = Locale("hi", "IN")
+            tts?.setSpeechRate(1.0f)
+            val res = tts?.speak(hindiText, TextToSpeech.QUEUE_FLUSH, null, utteranceHi)
+            if (res == TextToSpeech.ERROR) {
+                notifyComplete()
+            }
+        } catch (_: Exception) {
+            notifyComplete()
         }
     }
 
