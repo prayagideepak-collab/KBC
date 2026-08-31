@@ -8,6 +8,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Text-to-Speech Voice Host for TarkShastra.
@@ -63,17 +64,26 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
             tts?.setPitch(1.0f)
 
             val utteranceId = "Tark_Q_${System.currentTimeMillis()}"
+            val isCompleted = AtomicBoolean(false)
+
+            val notifyComplete = {
+                if (isCompleted.compareAndSet(false, true)) {
+                    hardCeilingJob?.cancel()
+                    hardCeilingJob = null
+                    scope.launch { onComplete?.invoke() }
+                }
+            }
 
             tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
                 override fun onStart(id: String?) {}
                 override fun onDone(id: String?) {
                     if (id == utteranceId) {
-                        scope.launch { onComplete?.invoke() }
+                        notifyComplete()
                     }
                 }
                 override fun onError(id: String?) {
                     if (id == utteranceId) {
-                        scope.launch { onComplete?.invoke() }
+                        notifyComplete()
                     }
                 }
             })
@@ -85,7 +95,7 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
             val fallbackDelay = (words.size * 300L).coerceIn(4000L, 15000L)
             hardCeilingJob = scope.launch {
                 delay(fallbackDelay)
-                onComplete?.invoke()
+                notifyComplete()
             }
         } catch (_: Exception) {
             onComplete?.invoke()

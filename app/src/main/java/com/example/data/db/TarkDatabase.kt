@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AppMetadataEntity::class,
         CurrentAffairEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class TarkDatabase : RoomDatabase() {
@@ -107,6 +107,15 @@ abstract class TarkDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    INSERT OR REPLACE INTO `app_metadata_table` (`versionCode`, `versionName`, `updatedAt`, `releaseNotes`)
+                    VALUES (8, '1.3.0', ${System.currentTimeMillis()}, 'Cycle 2 State Machine, Atomic TTS, and Authoritative Timer Architecture')
+                """)
+            }
+        }
+
         fun getDatabase(context: Context): TarkDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -114,7 +123,7 @@ abstract class TarkDatabase : RoomDatabase() {
                     TarkDatabase::class.java,
                     "tark_shastra_database.db"
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .build()
                 INSTANCE = instance
                 instance

@@ -1138,7 +1138,7 @@ fun QuizHeaderHud(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = formattedTime,
+                                text = timeRemaining.toString(),
                                 fontWeight = if (isFinalSeconds || isCritical) FontWeight.Black else FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = textColor
