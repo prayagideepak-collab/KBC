@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp as AutoMirroredVolumeUp
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.CheckCircle
@@ -496,6 +497,28 @@ fun QuizScreen(
                 }
 
                 // Authoritative 2×2 Paired Bilingual Options Grid (A/B Top Row, C/D Bottom Row)
+                if ((userProfile.isStudentMode || userProfile.preparationDomain.contains("Student", true)) && state.isOptionsVisible && !state.isLockedIn) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Button(
+                        onClick = { viewModel.readOptionsInGameTimer() },
+                        colors = ButtonDefaults.buttonColors(containerColor = InfoCyan.copy(alpha = 0.2f)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("read_options_button")
+                    ) {
+                        Icon(Icons.Default.VolumeUp, contentDescription = null, tint = InfoCyan, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isHi) "🔊 विकल्प सुनें (Read Options Aloud)" else "🔊 Read Options Aloud",
+                            color = InfoCyan,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
                 AnimatedVisibility(
                     visible = state.isOptionsVisible,
                     enter = fadeIn(tween(400)) + expandVertically(tween(400))

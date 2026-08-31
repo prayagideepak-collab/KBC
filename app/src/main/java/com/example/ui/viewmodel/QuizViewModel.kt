@@ -477,6 +477,10 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         val hasBonus = false
         val bonus = 0
 
+        val profile = userProfile.value
+        val isJunior = profile.isStudentMode || profile.preparationDomain.contains("Student", true)
+        val initialHintAvailable = if (isJunior && isTimed) false else !isTimed
+
         _uiState.value = QuizUiState.InGame(
             question = question,
             currentQNumber = targetQNum,
@@ -485,7 +489,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             isReadOnlySession = true,
             readOnlySecondsRemaining = 10,
             elapsedThinkingSeconds = 0,
-            isFreeHintAvailable = !isTimed, // Untimed Q11-17 has manual hint immediately available
+            isFreeHintAvailable = initialHintAvailable,
             isFreeHintVisible = false,
             freeHintContent = null,
             isOptionsVisible = false,
@@ -590,13 +594,23 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
         timerJob = viewModelScope.launch {
             var remaining = totalSeconds
+            val profile = userProfile.value
+            val isJunior = profile.isStudentMode || profile.preparationDomain.contains("Student", true)
+
             while (remaining > 0) {
                 delay(1000)
                 remaining--
                 val currentState = _uiState.value
                 if (currentState is QuizUiState.InGame && currentState.isTimerRunning && !currentState.isLockedIn) {
+                    val elapsed = totalSeconds - remaining
+                    val hintUnlocked = if (isJunior) {
+                        currentState.isFreeHintAvailable || elapsed >= (totalSeconds / 2)
+                    } else {
+                        true
+                    }
                     _uiState.value = currentState.copy(
-                        timeRemainingSeconds = remaining
+                        timeRemainingSeconds = remaining,
+                        isFreeHintAvailable = hintUnlocked
                     )
                 } else {
                     break
@@ -609,6 +623,12 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 handleTimeExpired(state)
             }
         }
+    }
+
+    private fun cleanupAntiCheatingSession() {
+        stopIdentityMonitoring()
+        stopTimer()
+        identityWarningCount = 0
     }
 
     private fun startUnlimitedThinkingTimer() {
