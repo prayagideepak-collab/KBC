@@ -48,6 +48,7 @@ object DynamicLogicEngine {
         studentAge: Int = 12,
         studentClass: String = "Class 8",
         excludedFingerprints: Set<String> = emptySet(),
+        excludedLogicFingerprints: Set<String> = emptySet(),
         salt: Int = Random.nextInt(1, 1000000)
     ): QuestionItem {
         var attempts = 0
@@ -58,8 +59,14 @@ object DynamicLogicEngine {
             } else {
                 generateAdultQuestion(qNumber, salt + attempts * 37)
             }
+            val qFp = candidate.semanticFingerprint.trim().lowercase()
+            val lFp = "logic_q${qNumber}_${candidate.category.lowercase().replace(" ", "_")}_${qFp.take(16)}"
+            val isExcluded = excludedFingerprints.contains(qFp) || excludedLogicFingerprints.contains(lFp)
             attempts++
-        } while (excludedFingerprints.contains(candidate.semanticFingerprint) && attempts < 25)
+            if (!isExcluded || attempts >= 35) {
+                break
+            }
+        } while (true)
 
         return candidate
     }

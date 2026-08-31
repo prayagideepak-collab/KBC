@@ -23,7 +23,6 @@ import com.example.ui.screens.ProfileInstallingScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.QuizScreen
 import com.example.ui.screens.SummaryScreen
-import com.example.ui.screens.WrongAnswerSolutionScreen
 import com.example.ui.theme.NavyBackground
 import com.example.ui.theme.TarkShastraTheme
 import com.example.ui.viewmodel.QuizUiState
@@ -107,16 +106,6 @@ fun TarkAppContent(
         }
         is QuizUiState.InGame -> {
             QuizScreen(state = state, viewModel = viewModel, modifier = modifier)
-        }
-        is QuizUiState.WrongAnswerSolution -> {
-            WrongAnswerSolutionScreen(
-                viewModel = viewModel,
-                question = state.question,
-                selectedOptionIndex = state.selectedOptionIndex,
-                onContinue = {
-                    viewModel.continueFromWrongAnswerSolution(state)
-                }
-            )
         }
         is QuizUiState.GameSummary -> {
             SummaryScreen(

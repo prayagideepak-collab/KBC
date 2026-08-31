@@ -423,8 +423,8 @@ fun QuizScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Read Only Session Card (Active during first 5 seconds)
-                if (state.phase == QuestionPhase.READING_WINDOW) {
+                // Read Only Session Card (Active during question TTS reading)
+                if (state.phase == QuestionPhase.QUESTION_READING) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -493,29 +493,6 @@ fun QuizScreen(
                     }
                 }
 
-                // Authoritative 2×2 Paired Bilingual Options Grid (A/B Top Row, C/D Bottom Row)
-                if ((userProfile.isStudentMode || userProfile.preparationDomain.contains("Student", true)) && state.isOptionsVisible && !state.isLockedIn) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Button(
-                        onClick = { viewModel.readOptionsInGameTimer() },
-                        colors = ButtonDefaults.buttonColors(containerColor = InfoCyan.copy(alpha = 0.2f)),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("read_options_button")
-                    ) {
-                        Icon(Icons.Default.VolumeUp, contentDescription = null, tint = InfoCyan, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isHi) "🔊 विकल्प सुनें (Read Options Aloud)" else "🔊 Read Options Aloud",
-                            color = InfoCyan,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
                 AnimatedVisibility(
                     visible = state.isOptionsVisible,
                     enter = fadeIn(tween(400)) + expandVertically(tween(400))
@@ -531,7 +508,7 @@ fun QuizScreen(
                         isLockedIn = state.isLockedIn,
                         preferredLanguage = language,
                         onOptionSelected = { index ->
-                            if (state.phase == QuestionPhase.ACTIVE_CHOICE && !state.isLockedIn && !state.discardedOptionIndices.contains(index)) {
+                            if (state.phase == QuestionPhase.ANSWER_ACTIVE && !state.isLockedIn && !state.discardedOptionIndices.contains(index)) {
                                 viewModel.selectOption(index)
                             }
                         }
@@ -692,13 +669,13 @@ fun QuizScreen(
                     onUseAskExpert = { viewModel.useAskExpert() },
                     onUseFlipQuestion = { viewModel.useFlipQuestion() },
                     onUsePowerPaplu = { target -> viewModel.usePowerPaplu(target) },
-                    isEnabled = state.phase != QuestionPhase.READING_WINDOW
+                    isEnabled = state.phase != QuestionPhase.QUESTION_READING
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
                 // Lock-In Button ("ताला लगाएँ")
-                val canLockIn = state.selectedOptionIndex != null && !state.isLockedIn && state.phase != QuestionPhase.READING_WINDOW
+                val canLockIn = state.selectedOptionIndex != null && !state.isLockedIn && state.phase != QuestionPhase.QUESTION_READING
                 val isLocked = state.isLockedIn
 
                 Button(
@@ -726,7 +703,7 @@ fun QuizScreen(
                         text = when {
                             isLocked -> if (isHi) "🔒 उत्तर लॉक हो चुका है (LOCKED)" else "🔒 ANSWER LOCKED"
                             canLockIn -> if (isHi) "ताला लगाएँ (Lock Answer)" else "LOCK ANSWER"
-                            state.phase == QuestionPhase.READING_WINDOW -> if (isHi) "प्रश्न ध्यान से पढ़ें (Read Carefully)" else "READ QUESTION FIRST"
+                            state.phase == QuestionPhase.QUESTION_READING -> if (isHi) "प्रश्न ध्यान से पढ़ें (Read Carefully)" else "READ QUESTION FIRST"
                             else -> if (isHi) "कृपया विकल्प चुनें (Select Option)" else "SELECT AN OPTION"
                         },
                         style = MaterialTheme.typography.titleSmall.copy(

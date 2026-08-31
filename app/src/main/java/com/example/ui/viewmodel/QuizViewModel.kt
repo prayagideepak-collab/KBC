@@ -34,11 +34,11 @@ import java.util.UUID
  * -> TRANSITIONING (<= 0.5s swap)
  */
 enum class QuestionPhase {
-    READING_WINDOW,
-    ACTIVE_CHOICE,
-    LOCKED,
-    VALIDATING,
-    REVEALED,
+    QUESTION_PREPARING,
+    QUESTION_READING,
+    ANSWER_ACTIVE,
+    ANSWER_LOCKED,
+    ANSWER_RESULT,
     TRANSITIONING
 }
 
@@ -65,7 +65,7 @@ sealed interface QuizUiState {
     data class InGame(
         val question: QuestionItem,
         val currentQNumber: Int,
-        val phase: QuestionPhase = QuestionPhase.READING_WINDOW,
+        val phase: QuestionPhase = QuestionPhase.QUESTION_READING,
         val timerMode: TimerMode = TimerMode.TIMED,
         val isPaused: Boolean = false,
         val pauseSecondsRemaining: Int = 10,
@@ -99,14 +99,6 @@ sealed interface QuizUiState {
         val identityWarningCount: Int = 0,
         val disqualificationNotice: String? = null
     ) : QuizUiState
-    data class WrongAnswerSolution(
-        val question: QuestionItem,
-        val selectedOptionIndex: Int,
-        val guaranteedSecuredPoints: Long,
-        val highestQNumber: Int,
-        val lifelinesUsed: Int,
-        val isTimeout: Boolean = false
-    ) : QuizUiState
     data class GameSummary(
         val result: GameSessionResult,
         val lastQuestion: QuestionItem?
@@ -126,7 +118,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     val soundPlayer = SoundEffectsPlayer()
     val speechNarrator = SpeechNarrator(application)
 
-    private val _isVoiceNarrationEnabled = MutableStateFlow(false)
+    private val _isVoiceNarrationEnabled = MutableStateFlow(true)
     val isVoiceNarrationEnabled: StateFlow<Boolean> = _isVoiceNarrationEnabled.asStateFlow()
 
     private val _isSoundMuted = MutableStateFlow(false)
@@ -267,7 +259,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 repository.saveUserProfile(updatedProfile)
                 android.util.Log.d("TarkShastra", "PROFILE_VALIDATED: Profile successfully persisted")
 
-                _uiState.value = QuizUiState.ProfileInstalling(0.35f, "लाइव करंट अफेयर्स और ज्ञान वैक्टर सिंक हो रहे हैं...")
+                _uiState.value = QuizUiState.ProfileInstalling(0.4f, "लाइव करंट अफेयर्स और ज्ञान वैक्टर सिंक हो रहे हैं...")
                 delay(500)
                 try {
                     repository.syncCurrentAffairsSilently(updatedProfile)
@@ -275,32 +267,9 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                     android.util.Log.e("TarkShastra", "BANK_DOWNLOAD_FAILED: Current affairs sync error: ${e.message}")
                 }
 
-                _uiState.value = QuizUiState.ProfileInstalling(0.65f, "ऑफ़लाइन उपयोग के लिए प्रश्न और उत्तर बैंक तैयार किए जा रहे हैं...")
+                _uiState.value = QuizUiState.ProfileInstalling(0.75f, "ऑफ़लाइन उपयोग के लिए प्रश्न और उत्तर बैंक तैयार किए जा रहे हैं...")
                 android.util.Log.d("TarkShastra", "BANK_CHECK_STARTED / BANK_DOWNLOAD_STARTED")
-                delay(600)
-
-                try {
-                    val preloaded = repository.preloadGameLadder(updatedProfile, setOf(2, 8))
-                    if (preloaded.isEmpty()) {
-                        android.util.Log.e("TarkShastra", "BANK_EMPTY: Preloaded bank is empty")
-                        _uiState.value = QuizUiState.PermissionRequired(
-                            listOf(),
-                            "⚠️ Question Bank Error: Generated question bank is empty. Please try again."
-                        )
-                        return@launch
-                    }
-                    android.util.Log.d("TarkShastra", "BANK_DOWNLOAD_COMPLETED & BANK_VALIDATED: Bank size ${preloaded.size}")
-                } catch (e: Exception) {
-                    android.util.Log.e("TarkShastra", "BANK_DOWNLOAD_FAILED: ${e.message}")
-                    _uiState.value = QuizUiState.PermissionRequired(
-                        listOf(),
-                        "⚠️ Question Bank Download Failed: ${e.message}. Please check connection and try again."
-                    )
-                    return@launch
-                }
-
-                _uiState.value = QuizUiState.ProfileInstalling(0.9f, "कठिनाई और डुप्लिकेट सत्यापन पूर्ण हो रहा है...")
-                delay(400)
+                delay(500)
 
                 _uiState.value = QuizUiState.ProfileInstalling(1.0f, "100% ऑफ़लाइन गेम बैंक तैयार है! लॉन्च हो रहा है...")
                 delay(400)
@@ -442,7 +411,6 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         currentQuestionPresentationTimestamp = System.currentTimeMillis()
 
         val question = sessionLadder[targetQNum] ?: run {
-            // Fallback safety
             val profile = userProfile.value
             CurrentAffairsReasoningGenerator.generateReasoningQuestion(targetQNum, profile)
         }
@@ -451,109 +419,67 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         val isTimed = baseTime != null
         val allocatedTime = baseTime
 
-        val profile = userProfile.value
-        val isJunior = profile.isStudentMode || profile.preparationDomain.contains("Student", true)
+        _uiState.value = QuizUiState.InGame(
+            question = question,
+            currentQNumber = targetQNum,
+            phase = QuestionPhase.QUESTION_READING,
+            timerMode = if (isTimed) TimerMode.TIMED else TimerMode.UNLIMITED_ELAPSED,
+            elapsedThinkingSeconds = 0,
+            isFreeHintAvailable = false,
+            isFreeHintVisible = false,
+            freeHintContent = null,
+            isOptionsVisible = false,
+            selectedOptionIndex = null,
+            lockedOptionIndex = null,
+            isLockedIn = false,
+            isAnswerRevealed = false,
+            isCorrect = false,
+            timeRemainingSeconds = allocatedTime,
+            totalTimeAllocated = allocatedTime,
+            baseTimeSeconds = baseTime,
+            lifelineUsedInCurrentQuestion = isFlipReplacement,
+            isTimerRunning = false,
+            discardedOptionIndices = emptySet(),
+            currentPointsWon = accumulatedPoints,
+            guaranteedSecuredPoints = guaranteedPoints,
+            lifelineState = lifelines,
+            isLadderDrawerOpen = false,
+            expertDialogContent = null,
+            isExpertLoading = false,
+            fiftyFiftyProofDialog = null,
+            showCheckpointFanfare = if (question.isCheckpoint && !isFlipReplacement) question.checkpointTitle else null
+        )
 
-        if (isJunior) {
-            _uiState.value = QuizUiState.InGame(
-                question = question,
-                currentQNumber = targetQNum,
-                phase = QuestionPhase.READING_WINDOW,
-                timerMode = TimerMode.TIMED,
-                elapsedThinkingSeconds = 0,
-                isFreeHintAvailable = false,
-                isFreeHintVisible = false,
-                freeHintContent = null,
-                isOptionsVisible = false,
-                selectedOptionIndex = null,
-                lockedOptionIndex = null,
-                isLockedIn = false,
-                isAnswerRevealed = false,
-                isCorrect = false,
-                timeRemainingSeconds = allocatedTime,
-                totalTimeAllocated = allocatedTime,
-                baseTimeSeconds = baseTime,
-                lifelineUsedInCurrentQuestion = isFlipReplacement,
-                isTimerRunning = false,
-                discardedOptionIndices = emptySet(),
-                currentPointsWon = accumulatedPoints,
-                guaranteedSecuredPoints = guaranteedPoints,
-                lifelineState = lifelines,
-                isLadderDrawerOpen = false,
-                expertDialogContent = null,
-                isExpertLoading = false,
-                fiftyFiftyProofDialog = null,
-                showCheckpointFanfare = if (question.isCheckpoint && !isFlipReplacement) question.checkpointTitle else null
-            )
+        val langMode = languageMode.value
+        val qText = when (langMode) {
+            "ENGLISH" -> question.questionEnglish
+            "BILINGUAL" -> "${question.questionHindi}\n${question.questionEnglish}"
+            else -> question.questionHindi
+        }
 
-            val langMode = languageMode.value
-            val qText = when (langMode) {
-                "ENGLISH" -> question.questionEnglish
-                "BILINGUAL" -> "${question.questionHindi}\n${question.questionEnglish}"
-                else -> question.questionHindi
-            }
+        speechNarrator.stop()
+        currentNarrationToken = System.currentTimeMillis()
+        val token = currentNarrationToken
+        val sessionId = currentSessionId
 
-            speechNarrator.stop()
-            currentNarrationToken = System.currentTimeMillis()
-            val token = currentNarrationToken
-            val sessionId = currentSessionId
-
-            if (_isVoiceNarrationEnabled.value) {
-                speechNarrator.speakQuestionBounded(qText, langMode) {
-                    if (currentSessionId == sessionId && currentNarrationToken == token) {
-                        transitionToActiveChoice(targetQNum, allocatedTime)
-                    }
+        if (_isVoiceNarrationEnabled.value) {
+            speechNarrator.speakQuestionBounded(qText, langMode) {
+                if (currentSessionId == sessionId && currentNarrationToken == token) {
+                    transitionToAnswerActive(targetQNum, allocatedTime, isTimed)
                 }
-            } else {
-                transitionToActiveChoice(targetQNum, allocatedTime)
             }
         } else {
-            _uiState.value = QuizUiState.InGame(
-                question = question,
-                currentQNumber = targetQNum,
-                phase = QuestionPhase.ACTIVE_CHOICE,
-                timerMode = if (isTimed) TimerMode.TIMED else TimerMode.UNLIMITED_ELAPSED,
-                elapsedThinkingSeconds = 0,
-                isFreeHintAvailable = true,
-                isFreeHintVisible = false,
-                freeHintContent = null,
-                isOptionsVisible = true,
-                selectedOptionIndex = null,
-                lockedOptionIndex = null,
-                isLockedIn = false,
-                isAnswerRevealed = false,
-                isCorrect = false,
-                timeRemainingSeconds = allocatedTime,
-                totalTimeAllocated = allocatedTime,
-                baseTimeSeconds = baseTime,
-                lifelineUsedInCurrentQuestion = isFlipReplacement,
-                isTimerRunning = isTimed,
-                discardedOptionIndices = emptySet(),
-                currentPointsWon = accumulatedPoints,
-                guaranteedSecuredPoints = guaranteedPoints,
-                lifelineState = lifelines,
-                isLadderDrawerOpen = false,
-                expertDialogContent = null,
-                isExpertLoading = false,
-                fiftyFiftyProofDialog = null,
-                showCheckpointFanfare = if (question.isCheckpoint && !isFlipReplacement) question.checkpointTitle else null
-            )
-
-            if (allocatedTime != null) {
-                startTimer(allocatedTime)
-            } else {
-                startUnlimitedThinkingTimer()
-            }
+            transitionToAnswerActive(targetQNum, allocatedTime, isTimed)
         }
     }
 
-    private fun transitionToActiveChoice(targetQNum: Int, mainTimeLimit: Int?) {
+    private fun transitionToAnswerActive(targetQNum: Int, mainTimeLimit: Int?, isTimed: Boolean) {
         val currentState = _uiState.value
-        if (currentState is QuizUiState.InGame && currentState.currentQNumber == targetQNum && currentState.phase == QuestionPhase.READING_WINDOW) {
+        if (currentState is QuizUiState.InGame && currentState.currentQNumber == targetQNum && currentState.phase == QuestionPhase.QUESTION_READING) {
             soundPlayer.playOptionSelected()
             if (mainTimeLimit != null) {
                 _uiState.value = currentState.copy(
-                    phase = QuestionPhase.ACTIVE_CHOICE,
+                    phase = QuestionPhase.ANSWER_ACTIVE,
                     timerMode = TimerMode.TIMED,
                     isOptionsVisible = true,
                     isTimerRunning = true,
@@ -562,7 +488,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 startTimer(mainTimeLimit)
             } else {
                 _uiState.value = currentState.copy(
-                    phase = QuestionPhase.ACTIVE_CHOICE,
+                    phase = QuestionPhase.ANSWER_ACTIVE,
                     timerMode = TimerMode.UNLIMITED_ELAPSED,
                     isOptionsVisible = true,
                     isTimerRunning = false,
@@ -692,7 +618,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
     fun pauseGame() {
         val state = _uiState.value
-        if (state is QuizUiState.InGame && !state.isPaused && state.phase == QuestionPhase.ACTIVE_CHOICE && state.isTimerRunning) {
+        if (state is QuizUiState.InGame && !state.isPaused && state.phase == QuestionPhase.ANSWER_ACTIVE && state.isTimerRunning) {
             stopTimer()
             savedTimeRemainingBeforePause = state.timeRemainingSeconds
             _uiState.value = state.copy(
@@ -745,7 +671,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         if (state !is QuizUiState.InGame) return
 
         // IMMUTABILITY & ANTI-CHEAT GUARD:
-        if (state.phase != QuestionPhase.ACTIVE_CHOICE || state.isLockedIn || state.lockedOptionIndex != null) {
+        if (state.phase != QuestionPhase.ANSWER_ACTIVE || state.isLockedIn || state.lockedOptionIndex != null) {
             return
         }
         if (state.discardedOptionIndices.contains(index)) {
@@ -772,7 +698,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         if (state !is QuizUiState.InGame) return
 
         // Anti-cheat guard: must be in ACTIVE_CHOICE with an option selected and not already locked
-        if (state.phase != QuestionPhase.ACTIVE_CHOICE || state.selectedOptionIndex == null || state.isLockedIn) {
+        if (state.phase != QuestionPhase.ANSWER_ACTIVE || state.selectedOptionIndex == null || state.isLockedIn) {
             return
         }
 
@@ -804,7 +730,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
             // Reveal correct status immediately (<= 0.1s)
             _uiState.value = state.copy(
-                phase = QuestionPhase.REVEALED,
+                phase = QuestionPhase.ANSWER_RESULT,
                 timerMode = TimerMode.RESULT,
                 isAnswerRevealed = true,
                 isCorrect = true,
@@ -848,10 +774,9 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             }
         } else {
             currentSessionWrongCount++
-            // Wrong Answer: Reveal red status immediately (<= 0.1s)
             soundPlayer.playWrongAnswer()
             _uiState.value = state.copy(
-                phase = QuestionPhase.REVEALED,
+                phase = QuestionPhase.ANSWER_RESULT,
                 timerMode = TimerMode.RESULT,
                 isAnswerRevealed = true,
                 isCorrect = false,
@@ -866,17 +791,27 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             viewModelScope.launch {
-                delay(1200) // Brief visual absorption of failure on option card
+                delay(1200)
 
-                // Transition to Mandatory Full Educational Solution Screen
-                _uiState.value = QuizUiState.WrongAnswerSolution(
-                    question = state.question,
-                    selectedOptionIndex = chosenIndex,
-                    guaranteedSecuredPoints = state.guaranteedSecuredPoints,
-                    highestQNumber = state.currentQNumber,
-                    lifelinesUsed = currentSessionLifelinesUsed,
-                    isTimeout = false
-                )
+                if (state.currentQNumber >= 17) {
+                    finishGame(
+                        wonPoints = state.guaranteedSecuredPoints,
+                        highestQ = 17,
+                        isGrandWin = false,
+                        reason = "COMPLETED_FINAL_QUESTION",
+                        lastQ = state.question
+                    )
+                } else {
+                    advanceToNextQuestion(
+                        nextQNum = state.currentQNumber + 1,
+                        accumulatedPoints = state.currentPointsWon,
+                        guaranteedPoints = state.guaranteedSecuredPoints,
+                        lifelines = state.lifelineState.copy(
+                            is5050UsedInCurrentQ = false,
+                            isExpertUsedInCurrentQ = false
+                        )
+                    )
+                }
             }
         }
     }
@@ -896,16 +831,6 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             accumulatedPoints = accumulatedPoints,
             guaranteedPoints = guaranteedPoints,
             lifelines = lifelines
-        )
-    }
-
-    fun continueFromWrongAnswerSolution(state: QuizUiState.WrongAnswerSolution) {
-        finishGame(
-            wonPoints = state.guaranteedSecuredPoints,
-            highestQ = state.highestQNumber,
-            isGrandWin = false,
-            reason = if (state.isTimeout) "TIMEOUT" else "WRONG_ANSWER",
-            lastQ = state.question
         )
     }
 
@@ -931,22 +856,36 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
         val chosenOrFallback = state.selectedOptionIndex ?: ((state.question.correctAnswerIndex + 1) % 4)
         _uiState.value = state.copy(
-            phase = QuestionPhase.REVEALED,
+            phase = QuestionPhase.ANSWER_RESULT,
+            timerMode = TimerMode.RESULT,
             isAnswerRevealed = true,
             isCorrect = false,
             lockedOptionIndex = chosenOrFallback,
-            isLockedIn = true
+            isLockedIn = true,
+            isTimerRunning = false
         )
+        if (_isVoiceNarrationEnabled.value) {
+            val userName = userProfile.value.name
+            speechNarrator.speakResultAnnouncement(userName, isCorrect = false, languageMode.value)
+        }
         viewModelScope.launch {
-            delay(1800)
-            _uiState.value = QuizUiState.WrongAnswerSolution(
-                question = state.question,
-                selectedOptionIndex = chosenOrFallback,
-                guaranteedSecuredPoints = state.guaranteedSecuredPoints,
-                highestQNumber = state.currentQNumber,
-                lifelinesUsed = currentSessionLifelinesUsed,
-                isTimeout = true
-            )
+            delay(1500)
+            if (state.currentQNumber >= 17) {
+                finishGame(
+                    wonPoints = state.guaranteedSecuredPoints,
+                    highestQ = 17,
+                    isGrandWin = false,
+                    reason = "TIMEOUT_FINAL_QUESTION",
+                    lastQ = state.question
+                )
+            } else {
+                advanceToNextQuestion(
+                    nextQNum = state.currentQNumber + 1,
+                    accumulatedPoints = state.currentPointsWon,
+                    guaranteedPoints = state.guaranteedSecuredPoints,
+                    lifelines = state.lifelineState
+                )
+            }
         }
     }
 
@@ -1004,7 +943,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
     fun use5050() {
         val state = _uiState.value
-        if (state is QuizUiState.InGame && state.phase == QuestionPhase.ACTIVE_CHOICE && !state.isLockedIn && state.lifelineState.is5050Available && !state.lifelineState.is5050Exhausted) {
+        if (state is QuizUiState.InGame && state.phase == QuestionPhase.ANSWER_ACTIVE && !state.isLockedIn && state.lifelineState.is5050Available && !state.lifelineState.is5050Exhausted) {
             soundPlayer.playLifeline5050()
             currentSessionLifelinesUsed++
 
@@ -1050,7 +989,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun useAskExpert() {
         val state = _uiState.value
-        if (state is QuizUiState.InGame && state.phase == QuestionPhase.ACTIVE_CHOICE && !state.isLockedIn && state.lifelineState.isExpertAvailable && !state.lifelineState.isExpertExhausted) {
+        if (state is QuizUiState.InGame && state.phase == QuestionPhase.ANSWER_ACTIVE && !state.isLockedIn && state.lifelineState.isExpertAvailable && !state.lifelineState.isExpertExhausted) {
             soundPlayer.playLifelineExpert()
             currentSessionLifelinesUsed++
 
@@ -1090,7 +1029,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
     fun useFlipQuestion() {
         val state = _uiState.value
-        if (state is QuizUiState.InGame && state.phase == QuestionPhase.ACTIVE_CHOICE && !state.isLockedIn && state.lifelineState.isFlipAvailable && !state.lifelineState.isFlipExhausted) {
+        if (state is QuizUiState.InGame && state.phase == QuestionPhase.ANSWER_ACTIVE && !state.isLockedIn && state.lifelineState.isFlipAvailable && !state.lifelineState.isFlipExhausted) {
             soundPlayer.playLifelineFlip()
             currentSessionLifelinesUsed++
             currentConsecutiveBonusSeconds = 0 // Break progression immediately
@@ -1132,7 +1071,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
     fun usePowerPaplu(rechargeTarget: String) {
         val state = _uiState.value
-        if (state is QuizUiState.InGame && state.phase == QuestionPhase.ACTIVE_CHOICE && !state.isLockedIn && state.lifelineState.isPowerPapluAvailable && !state.lifelineState.isPowerPapluExhausted) {
+        if (state is QuizUiState.InGame && state.phase == QuestionPhase.ANSWER_ACTIVE && !state.isLockedIn && state.lifelineState.isPowerPapluAvailable && !state.lifelineState.isPowerPapluExhausted) {
             soundPlayer.playPowerPapluRecharge()
             currentSessionLifelinesUsed++
 
@@ -1213,7 +1152,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun readOptionsInGameTimer() {
         val state = _uiState.value
-        if (state is QuizUiState.InGame && state.phase == QuestionPhase.ACTIVE_CHOICE && !state.isLockedIn) {
+        if (state is QuizUiState.InGame && state.phase == QuestionPhase.ANSWER_ACTIVE && !state.isLockedIn) {
             val langMode = languageMode.value
             val opts = if (langMode == "ENGLISH") state.question.optionsEnglish else state.question.optionsHindi
             val prefix = if (langMode == "ENGLISH") "Option" else "विकल्प"

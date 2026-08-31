@@ -95,7 +95,8 @@ class TarkRepository(
         userProfile: UserProfile,
         currentAffairsSlots: Set<Int>
     ): Map<Int, QuestionItem> = withContext(Dispatchers.IO) {
-        val servedFingerprints = questionDao.getAllServedFingerprintsForProfile(userProfile.id).toMutableSet()
+        val servedFingerprints = questionDao.getAllServedFingerprints().toMutableSet()
+        val servedLogicFingerprints = questionDao.getAllServedLogicFingerprints().toSet()
         val ladder = mutableMapOf<Int, QuestionItem>()
 
         for (qNum in 1..17) {
@@ -106,9 +107,10 @@ class TarkRepository(
                 difficultyMultiplier = 1.0f + (qNum * 0.05f),
                 flippedQuestionIds = emptySet(),
                 isCurrentAffairsSlot = isCurrentAffair,
-                customFingerprints = servedFingerprints
+                customFingerprints = servedFingerprints,
+                customLogicFingerprints = servedLogicFingerprints
             )
-            servedFingerprints.add(question.semanticFingerprint)
+            servedFingerprints.add(question.semanticFingerprint.trim().lowercase())
             ladder[qNum] = question
         }
 
@@ -125,9 +127,11 @@ class TarkRepository(
         difficultyMultiplier: Float,
         flippedQuestionIds: Set<String>,
         isCurrentAffairsSlot: Boolean = false,
-        customFingerprints: Set<String>? = null
+        customFingerprints: Set<String>? = null,
+        customLogicFingerprints: Set<String>? = null
     ): QuestionItem = withContext(Dispatchers.IO) {
-        val servedFingerprints = customFingerprints ?: questionDao.getAllServedFingerprintsForProfile(userProfile.id).toSet()
+        val servedFingerprints = customFingerprints ?: questionDao.getAllServedFingerprints().toSet()
+        val servedLogicFingerprints = customLogicFingerprints ?: questionDao.getAllServedLogicFingerprints().toSet()
 
         if (isCurrentAffairsSlot) {
             return@withContext getCurrentAffairsQuestionForTier(
@@ -146,10 +150,11 @@ class TarkRepository(
             isStudent = isStudent,
             studentAge = userProfile.age,
             studentClass = userProfile.studentClass,
-            excludedFingerprints = servedFingerprints
+            excludedFingerprints = servedFingerprints,
+            excludedLogicFingerprints = servedLogicFingerprints
         )
 
-        // Register in Room Database
+        // Register in Room Database (Global permanent uniqueness)
         registerQuestionInDb(selectedQuestion, userProfile.id, userProfile.languageMode)
 
         selectedQuestion
@@ -263,20 +268,27 @@ class TarkRepository(
     private suspend fun registerQuestionInDb(question: QuestionItem, profileId: String, languageMode: String) {
         val validLang = languageMode.uppercase()
         if (validLang !in listOf("HINDI", "ENGLISH", "BILINGUAL")) {
-            throw IllegalArgumentException("Invalid language mode: $languageMode. Profile repair required.")
+            throw IllegalArgumentException("Invalid language mode: $languageMode.")
         }
+        val qFp = question.semanticFingerprint.trim().lowercase()
+        val lFp = "logic_q${question.qNumber}_${question.category.lowercase().replace(" ", "_")}_${qFp.take(16)}"
+        
         val entity = QuestionRegistryEntity(
-            id = "${question.id}_${profileId}_${System.currentTimeMillis()}",
-            profileId = profileId,
+            id = "reg_${System.currentTimeMillis()}_${Math.random()}",
             questionId = question.id,
-            semanticFingerprint = question.semanticFingerprint,
+            questionFingerprint = qFp,
+            logicFingerprint = lFp,
             canonicalQuestion = question.questionEnglish.ifBlank { question.questionHindi },
             languageMode = validLang,
             difficultyTier = question.qNumber,
-            questionVersion = 1,
+            servedByProfileId = profileId,
             usedAt = System.currentTimeMillis()
         )
-        questionDao.registerQuestion(entity)
+        try {
+            questionDao.registerQuestion(entity)
+        } catch (e: Exception) {
+            android.util.Log.e("TarkShastra", "Global question already registered/consumed: ${e.message}")
+        }
     }
 
     private fun selectCategoryForTierAndProfile(qNumber: Int, profile: UserProfile): String {

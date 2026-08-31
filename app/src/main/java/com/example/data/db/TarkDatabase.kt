@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AppMetadataEntity::class,
         CurrentAffairEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class TarkDatabase : RoomDatabase() {
@@ -116,6 +116,41 @@ abstract class TarkDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `question_registry_new` (
+                        `id` TEXT NOT NULL,
+                        `questionId` TEXT NOT NULL,
+                        `questionFingerprint` TEXT NOT NULL,
+                        `logicFingerprint` TEXT NOT NULL,
+                        `canonicalQuestion` TEXT NOT NULL,
+                        `languageMode` TEXT NOT NULL,
+                        `difficultyTier` INTEGER NOT NULL,
+                        `servedBySessionId` TEXT NOT NULL DEFAULT '',
+                        `servedByProfileId` TEXT NOT NULL DEFAULT '',
+                        `isConsumed` INTEGER NOT NULL DEFAULT 1,
+                        `usedAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """)
+                database.execSQL("""
+                    INSERT OR IGNORE INTO `question_registry_new` (id, questionId, questionFingerprint, logicFingerprint, canonicalQuestion, languageMode, difficultyTier, servedByProfileId, usedAt)
+                    SELECT id, questionId, semanticFingerprint, 'legacy_logic_' || difficultyTier, canonicalQuestion, languageMode, difficultyTier, profileId, usedAt
+                    FROM `question_registry`
+                """)
+                database.execSQL("DROP TABLE IF EXISTS `question_registry`")
+                database.execSQL("ALTER TABLE `question_registry_new` RENAME TO `question_registry`")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_question_registry_questionFingerprint` ON `question_registry` (`questionFingerprint`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_question_registry_logicFingerprint` ON `question_registry` (`logicFingerprint`)")
+
+                database.execSQL("""
+                    INSERT OR REPLACE INTO `app_metadata_table` (`versionCode`, `versionName`, `updatedAt`, `releaseNotes`)
+                    VALUES (9, '1.4.0', ${System.currentTimeMillis()}, 'Global Permanent Question Uniqueness & Authoritative Registry')
+                """)
+            }
+        }
+
         fun getDatabase(context: Context): TarkDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -123,7 +158,7 @@ abstract class TarkDatabase : RoomDatabase() {
                     TarkDatabase::class.java,
                     "tark_shastra_database.db"
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .build()
                 INSTANCE = instance
                 instance

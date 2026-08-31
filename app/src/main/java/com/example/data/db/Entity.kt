@@ -6,17 +6,22 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "question_registry",
-    indices = [Index(value = ["profileId", "semanticFingerprint"], unique = true)]
+    indices = [
+        Index(value = ["questionFingerprint"], unique = true),
+        Index(value = ["logicFingerprint"], unique = false)
+    ]
 )
 data class QuestionRegistryEntity(
     @PrimaryKey val id: String,
-    val profileId: String,
     val questionId: String,
-    val semanticFingerprint: String,
+    val questionFingerprint: String,
+    val logicFingerprint: String,
     val canonicalQuestion: String,
     val languageMode: String,
     val difficultyTier: Int,
-    val questionVersion: Int = 1,
+    val servedBySessionId: String = "",
+    val servedByProfileId: String = "",
+    val isConsumed: Boolean = true,
     val usedAt: Long = System.currentTimeMillis()
 )
 

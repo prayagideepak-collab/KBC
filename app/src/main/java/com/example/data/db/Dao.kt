@@ -8,14 +8,17 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface QuestionDao {
-    @Query("SELECT * FROM question_registry WHERE profileId = :profileId AND semanticFingerprint = :fingerprint LIMIT 1")
-    suspend fun getQuestionByFingerprintForProfile(profileId: String, fingerprint: String): QuestionRegistryEntity?
+    @Query("SELECT * FROM question_registry WHERE questionFingerprint = :fingerprint LIMIT 1")
+    suspend fun getQuestionByFingerprint(fingerprint: String): QuestionRegistryEntity?
 
-    @Query("SELECT semanticFingerprint FROM question_registry WHERE profileId = :profileId")
-    suspend fun getAllServedFingerprintsForProfile(profileId: String): List<String>
+    @Query("SELECT questionFingerprint FROM question_registry")
+    suspend fun getAllServedFingerprints(): List<String>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun registerQuestion(entity: QuestionRegistryEntity)
+    @Query("SELECT logicFingerprint FROM question_registry")
+    suspend fun getAllServedLogicFingerprints(): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun registerQuestion(entity: QuestionRegistryEntity): Long
 
     @Query("SELECT COUNT(*) FROM question_registry")
     fun getRegisteredQuestionsCount(): Flow<Int>
