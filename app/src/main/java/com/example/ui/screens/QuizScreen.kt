@@ -89,6 +89,7 @@ import com.example.ui.components.ExpertAdviceDialog
 import com.example.ui.components.FiftyFiftyProofDialog
 import com.example.ui.components.LadderDrawer
 import com.example.ui.components.LifelineControls
+import com.example.ui.components.PadaavCelebrationOverlay
 import com.example.ui.components.ScratchpadDialog
 import com.example.ui.components.toArabicNumerals
 import com.example.ui.components.toDevanagariNumerals
@@ -587,44 +588,14 @@ fun QuizScreen(
             )
         }
 
-        // 4. Checkpoint Milestone Fanfare Dialog
+        // 4. Checkpoint Milestone Fanfare Overlay
         if (state.showCheckpointFanfare != null) {
-            AlertDialog(
-                onDismissRequest = { viewModel.dismissCheckpointFanfare() },
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.EmojiEvents,
-                            contentDescription = "Milestone",
-                            tint = GoldPrimary,
-                            modifier = Modifier.size(30.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = state.showCheckpointFanfare,
-                            color = GoldGlow,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                },
-                text = {
-                    Text(
-                        text = if (isHi) "बधाई! आप एक सुरक्षित पड़ाव (Checkpoint) पर हैं। यहाँ से सही उत्तर देने पर आपकी यह धनराशि 100% सुरक्षित (Guaranteed) हो जाएगी।"
-                        else "Milestone Checkpoint Reached! Answering this correctly guarantees your prize money cannot drop below this threshold.",
-                        color = TextPrimary,
-                        lineHeight = 20.sp
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { viewModel.dismissCheckpointFanfare() },
-                        colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary)
-                    ) {
-                        Text("आगे बढ़ें (Proceed)", color = NavyDeepest, fontWeight = FontWeight.Bold)
-                    }
-                },
-                containerColor = NavyCardElevated,
-                shape = RoundedCornerShape(16.dp)
+            PadaavCelebrationOverlay(
+                currentQNumber = state.currentQNumber,
+                checkpointTitle = state.showCheckpointFanfare ?: "सुरक्षित पड़ाव",
+                prizeFormatted = question.prizeFormatted,
+                isHindi = isHi,
+                onDismiss = { viewModel.dismissCheckpointFanfare() }
             )
         }
 

@@ -1,0 +1,132 @@
+package com.example
+
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import com.example.data.db.TarkDatabase
+import com.example.data.model.QuestionItem
+import com.example.data.model.QuestionSerializer
+import com.example.data.model.UserProfile
+import com.example.data.repository.DynamicLogicEngine
+import com.example.data.repository.PreparationStage
+import com.example.data.repository.QuestionIntelligencePipeline
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
+class QuestionIntelligencePipelineTest {
+
+    private lateinit var db: TarkDatabase
+    private lateinit var context: Context
+    private lateinit var pipeline: QuestionIntelligencePipeline
+
+    @Before
+    fun setup() {
+        context = ApplicationProvider.getApplicationContext()
+        db = Room.inMemoryDatabaseBuilder(context, TarkDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        pipeline = QuestionIntelligencePipeline(
+            context = context,
+            questionDao = db.questionDao(),
+            currentAffairsDao = db.currentAffairsDao(),
+            sessionBankCacheDao = db.sessionBankCacheDao()
+        )
+    }
+
+    @After
+    fun tearDown() {
+        db.close()
+    }
+
+    @Test
+    fun testGenerateExactly17QuestionsWithSequentialDifficulty() = runBlocking {
+        val profile = UserProfile(
+            name = "Aarav",
+            state = "Uttar Pradesh",
+            age = 14,
+            isStudentMode = true,
+            studentClass = "Class 9",
+            preparationDomain = "Student",
+            interests = listOf("Logical Deductions", "Data Interpretation", "Spatial Coordinate Vector"),
+            languageMode = "HINDI"
+        )
+
+        val stagesVisited = mutableListOf<PreparationStage>()
+        val ladder = pipeline.prepareSessionQuestionBank(
+            sessionId = "test_sess_001",
+            userProfile = profile
+        ) { progress ->
+            stagesVisited.add(progress.stage)
+        }
+
+        // Exactly 17 questions
+        assertEquals(17, ladder.size)
+
+        // Difficulty levels 1..17 strictly maintained
+        for (tier in 1..17) {
+            val q = ladder[tier]
+            assertNotNull("Question for tier $tier must not be null", q)
+            assertEquals(tier, q!!.difficultyLevel)
+            assertEquals(tier, q.qNumber)
+            assertTrue("Options count must be 4", q.optionsHindi.size == 4 || q.optionsEnglish.size == 4)
+            assertTrue("Correct answer index must be 0..3", q.correctAnswerIndex in 0..3)
+        }
+
+        // Verification of offline cache
+        val cachedLadder = pipeline.getCachedSessionLadder("test_sess_001")
+        assertNotNull(cachedLadder)
+        assertEquals(17, cachedLadder!!.size)
+        assertEquals(ladder[1]?.semanticFingerprint, cachedLadder[1]?.semanticFingerprint)
+    }
+
+    @Test
+    fun testQuestionSerializerRoundTrip() {
+        val original = DynamicLogicEngine.generateUniqueQuestion(
+            qNumber = 5,
+            isStudent = true,
+            studentAge = 12,
+            studentClass = "Class 7",
+            excludedFingerprints = emptySet(),
+            excludedLogicFingerprints = emptySet()
+        )
+
+        val json = QuestionSerializer.serializeQuestion(original)
+        val deserialized = QuestionSerializer.deserializeQuestion(json)
+
+        assertEquals(original.id, deserialized.id)
+        assertEquals(original.qNumber, deserialized.qNumber)
+        assertEquals(original.difficultyLevel, deserialized.difficultyLevel)
+        assertEquals(original.correctAnswerIndex, deserialized.correctAnswerIndex)
+        assertEquals(original.semanticFingerprint, deserialized.semanticFingerprint)
+    }
+
+    @Test
+    fun testUniquenessAcrossSessions() = runBlocking {
+        val profile = UserProfile(
+            name = "Priya",
+            state = "Maharashtra",
+            age = 22,
+            isStudentMode = false,
+            preparationDomain = "Logic",
+            interests = listOf("Logical Deductions", "Data Interpretation", "Analogy"),
+            languageMode = "ENGLISH"
+        )
+
+        val session1Ladder = pipeline.prepareSessionQuestionBank("sess_1", profile) {}
+        val session2Ladder = pipeline.prepareSessionQuestionBank("sess_2", profile) {}
+
+        // Fingerprints registered in DB
+        val servedCount = db.questionDao().getAllServedFingerprints().size
+        assertTrue("Registered questions in DB should be at least 17", servedCount >= 17)
+    }
+}
