@@ -118,3 +118,24 @@ data class CurrentAffairEntity(
     val usedQuestionIdsJson: String = "[]",
     val isExpired: Boolean = false
 )
+
+@Entity(
+    tableName = "session_question_bank_cache",
+    indices = [
+        Index(value = ["sessionId"], unique = true),
+        Index(value = ["status"], unique = false)
+    ]
+)
+data class SessionQuestionBankCacheEntity(
+    @PrimaryKey val sessionId: String,
+    val profileId: String,
+    val languageMode: String,
+    val isJuniorMode: Boolean,
+    val status: String, // "PREPARING", "READY", "ACTIVE", "COMPLETED", "FAILED"
+    val questionsJson: String, // JSON serialization of all 17 QuestionItems
+    val currentAffairEventIdsJson: String = "[]",
+    val createdAt: Long = System.currentTimeMillis(),
+    val preparedAt: Long = System.currentTimeMillis(),
+    val sourceSummary: String = "Online Intelligence & Reasoning Pipeline"
+)
+

@@ -1,16 +1,16 @@
 package com.example.data.model
 
 data class UserProfile(
-    val id: String = "default_user",
-    val name: String = "Challenger",
-    val age: Int = 24,
+    val id: String = "primary_user",
+    val name: String = "Rahul",
+    val age: Int = 18,
     val state: String = "Uttar Pradesh",
     val educationLevel: String = "Graduate",
     val occupation: String = "Aspirant / Student",
-    val preparationDomain: String = "SSC / State Exams",
+    val preparationDomain: String = "Logic",
     val studentClass: String = "Class 8",
     val isStudentMode: Boolean = false,
-    val interests: List<String> = listOf("Logical Reasoning", "General Science", "History", "Puzzles"),
+    val interests: List<String> = listOf("Logical Deductions", "Spatial Vectors", "Forensic Timelines"),
     val languageMode: String = "ENGLISH", // "HINDI", "ENGLISH", "BILINGUAL"
     val upiId: String = "",
     val profileVector: KnowledgeProfileVector = KnowledgeProfileVector()

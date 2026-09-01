@@ -21,6 +21,7 @@ import com.example.ui.screens.ItProfessionalSectionScreen
 import com.example.ui.screens.LoadingScreen
 import com.example.ui.screens.ProfileInstallingScreen
 import com.example.ui.screens.ProfileScreen
+import com.example.ui.screens.QuestionBankPreparationScreen
 import com.example.ui.screens.QuizScreen
 import com.example.ui.screens.SummaryScreen
 import com.example.ui.theme.NavyBackground
@@ -96,6 +97,13 @@ fun TarkAppContent(
         }
         is QuizUiState.QuestionLoading -> {
             LoadingScreen(modifier = modifier)
+        }
+        is QuizUiState.QuestionBankPreparing -> {
+            QuestionBankPreparationScreen(
+                progress = state.progress,
+                onRetry = { viewModel.startNewGame() },
+                modifier = modifier
+            )
         }
         is QuizUiState.ProfileInstalling -> {
             ProfileInstallingScreen(

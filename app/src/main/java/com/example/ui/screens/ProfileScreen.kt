@@ -179,7 +179,7 @@ fun ProfileScreen(
         mutableStateOf(initialAdultAge)
     }
     var selectedAdultDomain by remember(currentProfile) {
-        val domain = if (!currentProfile.preparationDomain.contains("Student", true)) currentProfile.preparationDomain else "SSC / State Exams"
+        val domain = if (currentProfile.preparationDomain.isNotBlank() && !currentProfile.preparationDomain.contains("Student", true)) currentProfile.preparationDomain else "Logic"
         mutableStateOf(domain)
     }
     var selectedEducation by remember(currentProfile) { mutableStateOf(currentProfile.educationLevel.ifBlank { "Graduate" }) }
@@ -188,6 +188,7 @@ fun ProfileScreen(
     var eduExpanded by remember { mutableStateOf(false) }
 
     val adultDomains = listOf(
+        "Logic",
         "SSC / State Exams",
         "UPSC / Civil Services",
         "Banking / IBPS",
@@ -1076,6 +1077,10 @@ fun ProfileScreen(
                     val finalAge = if (isJuniorMode) selectedJuniorAge else (adultAgeText.toIntOrNull() ?: 0)
                     if (name.isBlank() || selectedState.isBlank() || finalAge <= 0 || selectedLanguage.isBlank()) {
                         validationError = "⚠️ कृपया सभी अनिवार्य फील्ड (नाम, राज्य, आयु, भाषा) भरें।"
+                        return@Button
+                    }
+                    if (selectedInterests.size < 3) {
+                        validationError = "⚠️ कम से कम 3 श्रेणियां चुनना अनिवार्य है (Minimum 3 categories required)."
                         return@Button
                     }
                     validationError = null

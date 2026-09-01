@@ -20,8 +20,14 @@ interface QuestionDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun registerQuestion(entity: QuestionRegistryEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun registerQuestions(entities: List<QuestionRegistryEntity>): List<Long>
+
     @Query("SELECT COUNT(*) FROM question_registry")
     fun getRegisteredQuestionsCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM question_registry WHERE questionFingerprint IN (:fingerprints)")
+    suspend fun countExistingFingerprints(fingerprints: List<String>): Int
 }
 
 @Dao
@@ -104,3 +110,22 @@ interface CurrentAffairsDao {
     @Query("SELECT COUNT(*) FROM current_affairs_store")
     suspend fun getCount(): Int
 }
+
+@Dao
+interface SessionBankCacheDao {
+    @Query("SELECT * FROM session_question_bank_cache WHERE sessionId = :sessionId LIMIT 1")
+    suspend fun getCachedSessionBank(sessionId: String): SessionQuestionBankCacheEntity?
+
+    @Query("SELECT * FROM session_question_bank_cache WHERE status = 'READY' ORDER BY preparedAt DESC LIMIT 1")
+    suspend fun getLatestReadySessionBank(): SessionQuestionBankCacheEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateSessionBank(entity: SessionQuestionBankCacheEntity)
+
+    @Query("UPDATE session_question_bank_cache SET status = :status WHERE sessionId = :sessionId")
+    suspend fun updateSessionBankStatus(sessionId: String, status: String)
+
+    @Query("DELETE FROM session_question_bank_cache WHERE createdAt < :cutoffTimeMillis AND status IN ('COMPLETED', 'FAILED')")
+    suspend fun pruneOldSessionBanks(cutoffTimeMillis: Long): Int
+}
+

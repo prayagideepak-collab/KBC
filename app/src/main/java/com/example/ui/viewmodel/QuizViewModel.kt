@@ -10,6 +10,8 @@ import com.example.data.model.LifelineState
 import com.example.data.model.QuestionItem
 import com.example.data.model.UserProfile
 import com.example.data.repository.CurrentAffairsReasoningGenerator
+import com.example.data.repository.PreparationProgress
+import com.example.data.repository.PreparationStage
 import com.example.data.repository.TarkRepository
 import com.example.sound.SpeechNarrator
 import com.example.sound.SoundEffectsPlayer
@@ -54,6 +56,9 @@ sealed interface QuizUiState {
     data object HistoryScreen : QuizUiState
     data object ItProfessionalHubScreen : QuizUiState
     data object QuestionLoading : QuizUiState
+    data class QuestionBankPreparing(
+        val progress: PreparationProgress
+    ) : QuizUiState
     data class ProfileInstalling(
         val progress: Float,
         val message: String
@@ -113,7 +118,8 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         questionDao = db.questionDao(),
         userProfileDao = db.userProfileDao(),
         gameHistoryDao = db.gameHistoryDao(),
-        currentAffairsDao = db.currentAffairsDao()
+        currentAffairsDao = db.currentAffairsDao(),
+        sessionBankCacheDao = db.sessionBankCacheDao()
     )
     val soundPlayer = SoundEffectsPlayer()
     val speechNarrator = SpeechNarrator(application)
@@ -365,11 +371,16 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 val caSlot2 = (6..10).random()
                 sessionCurrentAffairsSlots = setOf(caSlot1, caSlot2)
 
-                _uiState.value = QuizUiState.QuestionLoading
+                val profile = repository.getUserProfile()
                 android.util.Log.d("TarkShastra", "BANK_CHECK_STARTED & BANK_DOWNLOAD_STARTED")
 
-                val profile = repository.getUserProfile()
-                val preloaded = repository.preloadGameLadder(profile, sessionCurrentAffairsSlots)
+                val preloaded = repository.prepareGameSessionBank(
+                    sessionId = currentSessionId,
+                    userProfile = profile
+                ) { progress ->
+                    _uiState.value = QuizUiState.QuestionBankPreparing(progress)
+                }
+
                 if (preloaded.isEmpty() || preloaded[1] == null) {
                     android.util.Log.e("TarkShastra", "BANK_EMPTY or FIRST_QUESTION_FAILED")
                     _uiState.value = QuizUiState.PermissionRequired(

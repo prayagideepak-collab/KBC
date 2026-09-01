@@ -8,6 +8,7 @@ import com.example.data.db.GameHistoryDao
 import com.example.data.db.GameHistoryEntity
 import com.example.data.db.QuestionDao
 import com.example.data.db.QuestionRegistryEntity
+import com.example.data.db.SessionBankCacheDao
 import com.example.data.db.UserProfileDao
 import com.example.data.db.UserProfileEntity
 import com.example.data.model.CurrentAffairItem
@@ -27,6 +28,7 @@ class TarkRepository(
     private val userProfileDao: UserProfileDao,
     private val gameHistoryDao: GameHistoryDao,
     private val currentAffairsDao: CurrentAffairsDao,
+    private val sessionBankCacheDao: SessionBankCacheDao,
     private val geminiApiClient: GeminiApiClient = GeminiApiClient()
 ) {
 
@@ -36,12 +38,42 @@ class TarkRepository(
         geminiApiClient = geminiApiClient
     )
 
+    val pipeline = QuestionIntelligencePipeline(
+        context = context,
+        questionDao = questionDao,
+        currentAffairsDao = currentAffairsDao,
+        sessionBankCacheDao = sessionBankCacheDao,
+        geminiApiClient = geminiApiClient
+    )
+
     val userProfileFlow: Flow<UserProfile> = userProfileDao.getUserProfileFlow().map { entity ->
         if (entity != null) {
             entityToUserProfile(entity)
         } else {
-            // Default initial profile
-            UserProfile()
+            val defaultProfile = UserProfile()
+            val vector = computeKnowledgeVector(defaultProfile)
+            val defaultEntity = UserProfileEntity(
+                userId = "primary_user",
+                name = defaultProfile.name,
+                age = defaultProfile.age,
+                state = defaultProfile.state,
+                languageMode = defaultProfile.languageMode,
+                upiId = defaultProfile.upiId,
+                educationLevel = defaultProfile.educationLevel,
+                occupation = defaultProfile.occupation,
+                preparationDomain = defaultProfile.preparationDomain,
+                studentClass = defaultProfile.studentClass,
+                isStudentMode = defaultProfile.isStudentMode,
+                interestsJson = JSONArray(defaultProfile.interests).toString(),
+                gkScore = vector.generalKnowledge,
+                logicScore = vector.logicalReasoning,
+                historyScore = vector.historyChronology,
+                scienceScore = vector.scienceTech,
+                financeScore = vector.financeEconomics,
+                spatialScore = vector.spatialVisual
+            )
+            userProfileDao.saveUserProfile(defaultEntity)
+            defaultProfile
         }
     }
 
@@ -84,7 +116,29 @@ class TarkRepository(
 
     suspend fun getUserProfile(): UserProfile = withContext(Dispatchers.IO) {
         val entity = userProfileDao.getUserProfile()
-        if (entity != null) entityToUserProfile(entity) else UserProfile()
+        if (entity != null) {
+            entityToUserProfile(entity)
+        } else {
+            val defaultProfile = UserProfile()
+            saveUserProfile(defaultProfile)
+            defaultProfile
+        }
+    }
+
+    /**
+     * Preloads and prepares all 17 questions for a new game session using the Question Intelligence Pipeline.
+     * Caches in local Room storage for 100% offline gameplay.
+     */
+    suspend fun prepareGameSessionBank(
+        sessionId: String,
+        userProfile: UserProfile,
+        onProgress: (PreparationProgress) -> Unit = {}
+    ): Map<Int, QuestionItem> = withContext(Dispatchers.IO) {
+        pipeline.prepareSessionQuestionBank(sessionId, userProfile, onProgress)
+    }
+
+    suspend fun getCachedSessionLadder(sessionId: String): Map<Int, QuestionItem>? = withContext(Dispatchers.IO) {
+        pipeline.getCachedSessionLadder(sessionId)
     }
 
     /**
@@ -93,28 +147,10 @@ class TarkRepository(
      */
     suspend fun preloadGameLadder(
         userProfile: UserProfile,
-        currentAffairsSlots: Set<Int>
+        currentAffairsSlots: Set<Int>,
+        sessionId: String = "session_${System.currentTimeMillis()}"
     ): Map<Int, QuestionItem> = withContext(Dispatchers.IO) {
-        val servedFingerprints = questionDao.getAllServedFingerprints().toMutableSet()
-        val servedLogicFingerprints = questionDao.getAllServedLogicFingerprints().toSet()
-        val ladder = mutableMapOf<Int, QuestionItem>()
-
-        for (qNum in 1..17) {
-            val isCurrentAffair = currentAffairsSlots.contains(qNum)
-            val question = getQuestionForTier(
-                qNumber = qNum,
-                userProfile = userProfile,
-                difficultyMultiplier = 1.0f + (qNum * 0.05f),
-                flippedQuestionIds = emptySet(),
-                isCurrentAffairsSlot = isCurrentAffair,
-                customFingerprints = servedFingerprints,
-                customLogicFingerprints = servedLogicFingerprints
-            )
-            servedFingerprints.add(question.semanticFingerprint.trim().lowercase())
-            ladder[qNum] = question
-        }
-
-        ladder
+        pipeline.prepareSessionQuestionBank(sessionId, userProfile) {}
     }
 
     /**

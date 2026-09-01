@@ -15,9 +15,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         GameSessionEntity::class,
         GameSessionEventEntity::class,
         AppMetadataEntity::class,
-        CurrentAffairEntity::class
+        CurrentAffairEntity::class,
+        SessionQuestionBankCacheEntity::class
     ],
-    version = 10,
+    version = 12,
     exportSchema = false
 )
 abstract class TarkDatabase : RoomDatabase() {
@@ -27,6 +28,7 @@ abstract class TarkDatabase : RoomDatabase() {
     abstract fun gameSessionDao(): GameSessionDao
     abstract fun appMetadataDao(): AppMetadataDao
     abstract fun currentAffairsDao(): CurrentAffairsDao
+    abstract fun sessionBankCacheDao(): SessionBankCacheDao
 
     companion object {
         @Volatile
@@ -165,6 +167,42 @@ abstract class TarkDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    INSERT OR REPLACE INTO `app_metadata_table` (`versionCode`, `versionName`, `updatedAt`, `releaseNotes`)
+                    VALUES (11, '1.6.0', ${System.currentTimeMillis()}, 'Final Challenger Default Profile & Category Personalization')
+                """)
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `session_question_bank_cache` (
+                        `sessionId` TEXT NOT NULL,
+                        `profileId` TEXT NOT NULL,
+                        `languageMode` TEXT NOT NULL,
+                        `isJuniorMode` INTEGER NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `questionsJson` TEXT NOT NULL,
+                        `currentAffairEventIdsJson` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `preparedAt` INTEGER NOT NULL,
+                        `sourceSummary` TEXT NOT NULL,
+                        PRIMARY KEY(`sessionId`)
+                    )
+                """)
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_session_question_bank_cache_sessionId` ON `session_question_bank_cache` (`sessionId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_session_question_bank_cache_status` ON `session_question_bank_cache` (`status`)")
+
+                database.execSQL("""
+                    INSERT OR REPLACE INTO `app_metadata_table` (`versionCode`, `versionName`, `updatedAt`, `releaseNotes`)
+                    VALUES (12, '1.7.0', ${System.currentTimeMillis()}, 'Online Question Intelligence, Local Registry, and Offline Session Cache Architecture')
+                """)
+            }
+        }
+
         fun getDatabase(context: Context): TarkDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -172,7 +210,7 @@ abstract class TarkDatabase : RoomDatabase() {
                     TarkDatabase::class.java,
                     "tark_shastra_database.db"
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                     .build()
                 INSTANCE = instance
                 instance

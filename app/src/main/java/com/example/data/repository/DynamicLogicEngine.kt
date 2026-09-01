@@ -956,14 +956,77 @@ object DynamicLogicEngine {
     private fun generateAdultQuestion(qNumber: Int, seed: Int): QuestionItem {
         val rand = Random(seed)
         val meta = getTierMeta(qNumber)
-        // Adult variations with randomized numeric parameters and entities
-        val deltaX = listOf(3, 5, 6, 8, 12).random(rand)
-        val deltaY = listOf(4, 12, 8, 15, 5).random(rand)
-        val fp = "ad_q${qNumber}_vector_${deltaX}_${deltaY}_seed$seed"
-
-        return DefaultQuestionsBank.getQuestionsForTier(qNumber, isStudent = false).firstOrNull()?.copy(
-            id = "gen_$fp",
-            semanticFingerprint = fp
-        ) ?: generateJuniorQuestion(qNumber, 24, "Graduate", seed)
+        return when (qNumber) {
+            1 -> {
+                val d1 = listOf(12, 15, 20, 25).random(rand)
+                val d2 = listOf(5, 8, 12, 15).random(rand)
+                val net = kotlin.math.sqrt((d1 * d1 + d2 * d2).toDouble()).toInt()
+                val fp = "ad_q1_pythagoras_${d1}_${d2}_$seed"
+                val opts = listOf("$net km", "${net + 3} km", "${net - 2} km", "${d1 + d2} km").distinct().shuffled(rand)
+                QuestionItem(
+                    id = "gen_$fp",
+                    qNumber = qNumber,
+                    difficultyTitle = meta.difficultyTitle,
+                    timeLimitSeconds = meta.timeLimitSeconds,
+                    prizePoints = meta.prizePoints,
+                    prizeFormatted = meta.prizeFormatted,
+                    isCheckpoint = meta.isCheckpoint,
+                    checkpointTitle = meta.checkpointTitle,
+                    category = "Spatial Coordinate Vector & Pythagoras",
+                    questionHindi = "एक अन्वेषक बिंदु O से $d1 किमी उत्तर की ओर और फिर $d2 किमी पूर्व की ओर चलता है। प्रारंभिक बिंदु से उसकी न्यूनतम सीधी दूरी क्या है?",
+                    questionEnglish = "An investigator travels $d1 km North from point O, and then $d2 km East. What is the shortest straight-line distance from the starting point?",
+                    cluesHindi = listOf("उत्तर दिशा = $d1 किमी (Y-अक्ष)", "पूर्व दिशा = $d2 किमी (X-अक्ष)", "पाइथागोरस प्रमेय: d² = x² + y²"),
+                    cluesEnglish = listOf("North displacement = $d1 km", "East displacement = $d2 km", "Pythagoras theorem: d² = x² + y²"),
+                    optionsHindi = opts,
+                    optionsEnglish = opts,
+                    correctAnswerIndex = opts.indexOf("$net km").coerceAtLeast(0),
+                    deductionPathHindi = "d = √($d1² + $d2²) = $net किमी।",
+                    deductionPathEnglish = "d = √($d1² + $d2²) = $net km.",
+                    eliminationReasonsHindi = opts.map { if (it == "$net km") "सही: पाइथागोरस प्रमेय द्वारा सिद्ध।" else "गलत: गणना विसंगति।" },
+                    eliminationReasonsEnglish = opts.map { if (it == "$net km") "Correct: Pythagoras calculation verified." else "False: Arithmetic error." },
+                    expertAdviceHindi = "सीधी दूरी के लिए विकर्ण की गणना करें।",
+                    expertAdviceEnglish = "Calculate the hypotenuse for the straight-line displacement.",
+                    fiftyFiftyDiscardIndices = (0..3).filter { it != opts.indexOf("$net km").coerceAtLeast(0) }.take(2),
+                    fiftyFiftyProofHindi = "असंगत दूरी विकल्प निरस्त।",
+                    fiftyFiftyProofEnglish = "Invalid displacement options eliminated.",
+                    semanticFingerprint = fp
+                )
+            }
+            2 -> {
+                val p = listOf(10, 15, 20, 25).random(rand)
+                val netInc = (p + p + (p * p) / 100)
+                val fp = "ad_q2_percent_${p}_$seed"
+                val opts = listOf("$netInc%", "${2 * p}%", "${netInc - 1}%", "${netInc + 2}%").distinct().shuffled(rand)
+                QuestionItem(
+                    id = "gen_$fp",
+                    qNumber = qNumber,
+                    difficultyTitle = meta.difficultyTitle,
+                    timeLimitSeconds = meta.timeLimitSeconds,
+                    prizePoints = meta.prizePoints,
+                    prizeFormatted = meta.prizeFormatted,
+                    isCheckpoint = meta.isCheckpoint,
+                    checkpointTitle = meta.checkpointTitle,
+                    category = "Quantitative Data Interpretation",
+                    questionHindi = "एक वस्तु के मूल्य में लगातार दो बार $p% की वृद्धि की जाती है। मूल्य में प्रभावी कुल प्रतिशत वृद्धि क्या है?",
+                    questionEnglish = "The price of an item is increased by $p% sequentially twice. What is the effective net percentage increase?",
+                    cluesHindi = listOf("पहली वृद्धि = $p%", "दूसरी वृद्धि = $p%", "प्रभावी सूत्र: A + B + (AB/100)"),
+                    cluesEnglish = listOf("First increase = $p%", "Second increase = $p%", "Formula: A + B + (AB/100)"),
+                    optionsHindi = opts,
+                    optionsEnglish = opts,
+                    correctAnswerIndex = opts.indexOf("$netInc%").coerceAtLeast(0),
+                    deductionPathHindi = "नेट = $p + $p + ($p*$p)/100 = $netInc%",
+                    deductionPathEnglish = "Net = $p + $p + ($p*$p)/100 = $netInc%",
+                    eliminationReasonsHindi = opts.map { if (it == "$netInc%") "सही: क्रमिक प्रतिशत वृद्धि नियम।" else "गलत: सरल योग त्रुटि।" },
+                    eliminationReasonsEnglish = opts.map { if (it == "$netInc%") "Correct: Compounded percentage rule." else "False: Simple addition fallacy." },
+                    expertAdviceHindi = "क्रमिक वृद्धि में चक्रवृद्धि प्रभाव को जोड़ें।",
+                    expertAdviceEnglish = "Include the compound increment factor in sequential changes.",
+                    fiftyFiftyDiscardIndices = (0..3).filter { it != opts.indexOf("$netInc%").coerceAtLeast(0) }.take(2),
+                    fiftyFiftyProofHindi = "सरल योग वाले भ्रामक विकल्प हटा दिए गए।",
+                    fiftyFiftyProofEnglish = "Simple addition distractor options discarded.",
+                    semanticFingerprint = fp
+                )
+            }
+            else -> generateJuniorQuestion(qNumber, 24, "Competitive Aspirant", seed)
+        }
     }
 }
