@@ -39,6 +39,14 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
         return if (m == "ENGLISH" || m == "EN") Locale.US else Locale("hi", "IN")
     }
 
+    private fun setHostPersonality(gender: String) {
+        if (gender.equals("MALE", ignoreCase = true)) {
+            tts?.setPitch(0.7f)
+        } else {
+            tts?.setPitch(1.2f)
+        }
+    }
+
     private fun isEnglishMode(mode: String): Boolean {
         val m = mode.uppercase()
         return m == "ENGLISH" || m == "EN"
@@ -49,7 +57,7 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
      * Calculates dynamic speech rate based on word count so full question is narrated within <= 5 sec.
      * A hard timeout forcibly stops TTS after 5.0 seconds.
      */
-    fun speakQuestionBounded(text: String, languageMode: String = "ENGLISH", onComplete: (() -> Unit)? = null) {
+    fun speakQuestionBounded(text: String, languageMode: String = "ENGLISH", hostGender: String = "FEMALE", onComplete: (() -> Unit)? = null) {
         if (!isReady || tts == null) {
             onComplete?.invoke()
             return
@@ -57,45 +65,37 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
         stop()
 
         try {
-            val isBilingual = languageMode.uppercase() == "BILINGUAL"
-            if (isBilingual && text.contains("\n")) {
-                val parts = text.split("\n", limit = 2)
-                val hindiPart = parts.getOrNull(0) ?: text
-                val englishPart = parts.getOrNull(1) ?: ""
-                speakSequential(hindiPart, englishPart, onComplete)
-            } else {
-                val locale = getLocaleForMode(languageMode)
-                tts?.language = locale
-                tts?.setSpeechRate(1.0f) // Normal comfortable speech rate
-                tts?.setPitch(1.0f)
+            val locale = getLocaleForMode(languageMode)
+            tts?.language = locale
+            tts?.setSpeechRate(1.0f) // Normal comfortable speech rate
+            tts?.setPitch(if (hostGender.uppercase() == "MALE") 0.7f else 1.1f)
 
-                val utteranceId = "Tark_Q_${System.currentTimeMillis()}"
-                val isCompleted = AtomicBoolean(false)
+            val utteranceId = "Tark_Q_${System.currentTimeMillis()}"
+            val isCompleted = AtomicBoolean(false)
 
-                val notifyComplete = {
-                    if (isCompleted.compareAndSet(false, true)) {
-                        scope.launch { onComplete?.invoke() }
+            val notifyComplete = {
+                if (isCompleted.compareAndSet(false, true)) {
+                    scope.launch { onComplete?.invoke() }
+                }
+            }
+
+            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(id: String?) {}
+                override fun onDone(id: String?) {
+                    if (id == utteranceId) {
+                        notifyComplete()
                     }
                 }
-
-                tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                    override fun onStart(id: String?) {}
-                    override fun onDone(id: String?) {
-                        if (id == utteranceId) {
-                            notifyComplete()
-                        }
+                override fun onError(id: String?) {
+                    if (id == utteranceId) {
+                        notifyComplete()
                     }
-                    override fun onError(id: String?) {
-                        if (id == utteranceId) {
-                            notifyComplete()
-                        }
-                    }
-                })
-
-                val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-                if (result == TextToSpeech.ERROR) {
-                    notifyComplete()
                 }
+            })
+
+            val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+            if (result == TextToSpeech.ERROR) {
+                notifyComplete()
             }
         } catch (_: Exception) {
             onComplete?.invoke()
@@ -171,27 +171,52 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
      * Announces result with user's authoritative profile name.
      * e.g. "Deepak, आपका जवाब सही है।" or "Deepak, your answer is correct."
      */
-    fun speakResultAnnouncement(userName: String, isCorrect: Boolean, languageMode: String = "ENGLISH") {
-        if (!isReady || tts == null) return
+    fun speakResultAnnouncement(isCorrect: Boolean, languageMode: String = "ENGLISH", hostGender: String = "FEMALE", onComplete: (() -> Unit)? = null) {
+        if (!isReady || tts == null) {
+            onComplete?.invoke()
+            return
+        }
         stop()
 
         try {
             val locale = getLocaleForMode(languageMode)
             tts?.language = locale
             tts?.setSpeechRate(1.08f)
-            tts?.setPitch(1.0f)
+            tts?.setPitch(if (hostGender.uppercase() == "MALE") 0.7f else 1.1f)
 
             val isEn = isEnglishMode(languageMode)
-            val cleanName = userName.ifBlank { if (isEn) "Player" else "खिलाड़ी" }
             val announcement = if (isCorrect) {
-                if (isEn) "$cleanName, your answer is correct." else "$cleanName, आपका जवाब सही है।"
+                if (isEn) "Correct." else "सही।"
             } else {
-                if (isEn) "$cleanName, your answer is incorrect." else "$cleanName, आपका जवाब गलत है।"
+                if (isEn) "Incorrect." else "गलत।"
             }
 
             val utteranceId = "Tark_Result_${System.currentTimeMillis()}"
-            tts?.speak(announcement, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-        } catch (_: Exception) {}
+            
+            val isCompleted = java.util.concurrent.atomic.AtomicBoolean(false)
+            val notifyComplete = {
+                if (isCompleted.compareAndSet(false, true)) {
+                    scope.launch { onComplete?.invoke() }
+                }
+            }
+
+            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(id: String?) {}
+                override fun onDone(id: String?) {
+                    if (id == utteranceId) notifyComplete()
+                }
+                override fun onError(id: String?) {
+                    if (id == utteranceId) notifyComplete()
+                }
+            })
+
+            val result = tts?.speak(announcement, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+            if (result == TextToSpeech.ERROR) {
+                notifyComplete()
+            }
+        } catch (_: Exception) {
+            onComplete?.invoke()
+        }
     }
 
     /**
@@ -208,6 +233,35 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
             tts?.setSpeechRate(0.96f)
             tts?.setPitch(1.02f)
             val utteranceId = "Tark_Solution_${System.currentTimeMillis()}"
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+        } catch (_: Exception) {}
+    }
+
+    fun speakFinalResult(
+        correct: Int,
+        incorrect: Int,
+        gross: Long,
+        deduction: Long,
+        finalAmount: Long,
+        language: String,
+        gender: String
+    ) {
+        if (!isReady || tts == null) return
+        stop()
+        try {
+            val locale = getLocaleForMode(language)
+            tts?.language = locale
+            setHostPersonality(gender)
+            tts?.setSpeechRate(1.0f)
+
+            val isHindi = language.equals("HINDI", ignoreCase = true)
+            val text = if (isHindi) {
+                "आपने $correct सवालों के सही जवाब दिए, और $incorrect के गलत। आपका कुल पुरस्कार है $gross रुपये। गलत जवाबों के लिए $deduction रुपये की कटौती की गई है। आपका अंतिम पुरस्कार है $finalAmount रुपये।"
+            } else {
+                "You answered $correct questions correctly, and $incorrect incorrectly. Your gross winning amount is $gross rupees. A deduction of $deduction rupees has been applied for incorrect answers. Your final winning amount is $finalAmount rupees."
+            }
+
+            val utteranceId = "Final_Result_${System.currentTimeMillis()}"
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
         } catch (_: Exception) {}
     }

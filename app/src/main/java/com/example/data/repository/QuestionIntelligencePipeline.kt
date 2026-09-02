@@ -256,11 +256,6 @@ class QuestionIntelligencePipeline(
                     question = candidate
                     servedFingerprints.add(fp)
                     servedLogicFingerprints.add(lFp)
-                } else if (attempts >= 20) {
-                    // Force uniqueness with unique salted modifier
-                    val uniqueId = "${candidate.id}_s_${System.currentTimeMillis()}"
-                    question = candidate.copy(id = uniqueId, semanticFingerprint = "${fp}_${System.currentTimeMillis()}")
-                    servedFingerprints.add(question.semanticFingerprint)
                 }
             }
 
@@ -271,9 +266,10 @@ class QuestionIntelligencePipeline(
                     isStudent = isStudent,
                     studentAge = userProfile.age,
                     studentClass = userProfile.studentClass,
-                    excludedFingerprints = emptySet(),
-                    excludedLogicFingerprints = emptySet()
+                    excludedFingerprints = servedFingerprints,
+                    excludedLogicFingerprints = servedLogicFingerprints
                 )
+                servedFingerprints.add(question.semanticFingerprint.trim().lowercase())
             }
 
             candidateLadder[tier] = question

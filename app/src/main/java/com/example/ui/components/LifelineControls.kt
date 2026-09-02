@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.AlertDialog
@@ -72,6 +73,7 @@ fun LifelineControls(
     onUseAskExpert: () -> Unit,
     onUseFlipQuestion: () -> Unit,
     onUsePowerPaplu: (rechargeTarget: String) -> Unit,
+    onUseHint: () -> Unit,
     isEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
@@ -80,11 +82,21 @@ fun LifelineControls(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 1. 50-50 Lifeline
+        // 1. Hint Lifeline
+        LifelineIconButton(
+            title = "Hint 💡",
+            icon = Icons.Default.Lightbulb,
+            isAvailable = isEnabled && lifelineState.isHintAvailable && !lifelineState.isHintUsedInCurrentQ,
+            accentColor = GoldPrimary,
+            testTag = "lifeline_hint_button",
+            onClick = { if (isEnabled) onUseHint() }
+        )
+
+        // 2. 50-50 Lifeline
         LifelineIconButton(
             title = "50-50",
             icon = Icons.AutoMirrored.Filled.HelpOutline,
@@ -94,9 +106,9 @@ fun LifelineControls(
             onClick = { if (isEnabled) onUse5050() }
         )
 
-        // 2. Ask the Expert (Tark Guru)
+        // 3. Ask the Expert (Tark Guru)
         LifelineIconButton(
-            title = "Ask Expert 🤖",
+            title = "Expert 🤖",
             icon = Icons.Default.SmartToy,
             isAvailable = isEnabled && lifelineState.isExpertAvailable && !lifelineState.isExpertExhausted,
             accentColor = PurpleAccent,
@@ -104,7 +116,7 @@ fun LifelineControls(
             onClick = { if (isEnabled) onUseAskExpert() }
         )
 
-        // 3. Flip the Question
+        // 4. Flip the Question
         LifelineIconButton(
             title = "Flip 🔄",
             icon = Icons.Default.Autorenew,
@@ -114,7 +126,7 @@ fun LifelineControls(
             onClick = { if (isEnabled) onUseFlipQuestion() }
         )
 
-        // 4. Power Paplu ⚡
+        // 5. Power Paplu ⚡
         val canUsePaplu = isEnabled && lifelineState.isPowerPapluAvailable &&
                 !lifelineState.isPowerPapluExhausted &&
                 (lifelineState.is5050Exhausted || lifelineState.isExpertExhausted || lifelineState.isFlipExhausted)

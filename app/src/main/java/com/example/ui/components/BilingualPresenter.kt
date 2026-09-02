@@ -57,21 +57,7 @@ import com.example.ui.theme.TextSecondary
  * Converts ASCII digits (0-9) to Devanagari numerals (०-९) for pure Hindi rendering.
  */
 fun String.toDevanagariNumerals(): String {
-    return this.map { char ->
-        when (char) {
-            '0' -> '०'
-            '1' -> '१'
-            '2' -> '२'
-            '3' -> '३'
-            '4' -> '४'
-            '5' -> '५'
-            '6' -> '६'
-            '7' -> '७'
-            '8' -> '८'
-            '9' -> '९'
-            else -> char
-        }
-    }.joinToString("")
+    return this
 }
 
 fun String.toArabicNumerals(): String {
@@ -573,68 +559,3 @@ fun BilingualOptionGridCard(
     }
 }
 
-/**
- * Bilingual Paired Free Hint Card.
- */
-@Composable
-fun BilingualHintCard(
-    hintHindi: String,
-    hintEnglish: String,
-    preferredLanguage: String,
-    modifier: Modifier = Modifier
-) {
-    val mode = preferredLanguage.uppercase()
-    val isHi = mode == "HINDI" || mode == "HI"
-    val isEn = mode == "ENGLISH" || mode == "EN"
-    val hHint = hintHindi.ifBlank { "दिए गए तथ्यों और संबंधों को क्रमवार देखें।" }.toDevanagariNumerals()
-    val eHint = hintEnglish.ifBlank { "Analyze the given facts and intermediate relations in sequence." }.toArabicNumerals()
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(NavyDeepest.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-            .border(1.dp, GoldPrimary.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-            .padding(12.dp)
-    ) {
-        if (isHi) {
-            Text(
-                text = hHint,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
-                )
-            )
-        } else if (isEn) {
-            Text(
-                text = eHint,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
-                )
-            )
-        } else {
-            Text(
-                text = hHint,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
-                )
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = eHint,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = InfoCyan.copy(alpha = 0.85f),
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp
-                )
-            )
-        }
-    }
-}

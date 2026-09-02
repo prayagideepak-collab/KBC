@@ -140,7 +140,11 @@ fun ProfileScreen(
     var selectedState by remember(currentProfile) { mutableStateOf(currentProfile.state) }
     var selectedLanguage by remember(currentProfile) { 
         val lang = currentProfile.languageMode.uppercase()
-        mutableStateOf(if (lang in listOf("HINDI", "ENGLISH", "BILINGUAL")) lang else "ENGLISH")
+        mutableStateOf(if (lang == "HINDI") "HINDI" else "ENGLISH")
+    }
+    var selectedHostGender by remember(currentProfile) {
+        val gender = currentProfile.hostGender.uppercase()
+        mutableStateOf(if (gender == "MALE") "MALE" else "FEMALE")
     }
     var upiId by remember(currentProfile) { mutableStateOf<String>(currentProfile.upiId) }
     var validationError by remember { mutableStateOf<String?>(null) }
@@ -449,7 +453,7 @@ fun ProfileScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("HINDI" to "🇮🇳 Hindi", "ENGLISH" to "🇬🇧 English", "BILINGUAL" to "🌐 Bilingual").forEach { (code, label) ->
+                        listOf("HINDI" to "🇮🇳 Hindi", "ENGLISH" to "🇬🇧 English").forEach { (code, label) ->
                             val isSelected = selectedLanguage.uppercase() == code
                             Box(
                                 modifier = Modifier
@@ -460,6 +464,41 @@ fun ProfileScreen(
                                     .clickable { selectedLanguage = code }
                                     .padding(vertical = 8.dp)
                                     .testTag("lang_option_$code"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) NavyDeepest else TextPrimary
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = "होस्ट (Host)",
+                        color = GoldDark,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("MALE" to "👨 Male", "FEMALE" to "👩 Female").forEach { (code, label) ->
+                            val isSelected = selectedHostGender.uppercase() == code
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) GoldPrimary else NavyDeepest)
+                                    .border(1.dp, if (isSelected) GoldPrimary else NavyBorder, RoundedCornerShape(8.dp))
+                                    .clickable { selectedHostGender = code }
+                                    .padding(vertical = 8.dp)
+                                    .testTag("host_gender_$code"),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -1101,6 +1140,7 @@ fun ProfileScreen(
                         studentClass = finalClass,
                         isStudentMode = isJuniorMode,
                         languageMode = selectedLanguage,
+                        hostGender = selectedHostGender,
                         upiId = upiId,
                         interests = selectedInterests.toList()
                     )

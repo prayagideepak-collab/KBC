@@ -11,7 +11,8 @@ data class UserProfile(
     val studentClass: String = "Class 8",
     val isStudentMode: Boolean = false,
     val interests: List<String> = listOf("Logical Deductions", "Spatial Vectors", "Forensic Timelines"),
-    val languageMode: String = "ENGLISH", // "HINDI", "ENGLISH", "BILINGUAL"
+    val languageMode: String = "ENGLISH",
+    val hostGender: String = "FEMALE",
     val upiId: String = "",
     val profileVector: KnowledgeProfileVector = KnowledgeProfileVector()
 )
@@ -111,7 +112,10 @@ data class LifelineState(
     
     val isPowerPapluAvailable: Boolean = true,
     val isPowerPapluExhausted: Boolean = false,
-    val rechargedLifelineName: String? = null // Name of the lifeline revived by Paplu
+    val rechargedLifelineName: String? = null, // Name of the lifeline revived by Paplu
+
+    val isHintAvailable: Boolean = true,
+    val isHintUsedInCurrentQ: Boolean = false
 )
 
 data class PadaavTier(
@@ -127,7 +131,10 @@ data class PadaavTier(
 data class GameSessionResult(
     val sessionId: String,
     val userName: String = "Challenger",
-    val totalPointsWon: Long,
+    val totalPointsWon: Long, // Maps to finalWinningAmount
+    val grossWinningAmount: Long = 0,
+    val totalNegativeDeduction: Long = 0,
+    val incorrectQuestionDeductionsJson: String = "[]", // Store breakdown
     val highestQuestionReached: Int,
     val isCompletedWon: Boolean,
     val guaranteedPointsSecured: Long,

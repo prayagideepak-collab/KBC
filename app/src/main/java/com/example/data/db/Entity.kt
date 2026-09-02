@@ -31,7 +31,8 @@ data class UserProfileEntity(
     val name: String,
     val age: Int,
     val state: String,
-    val languageMode: String = "ENGLISH", // HINDI, ENGLISH, BILINGUAL
+    val languageMode: String = "ENGLISH",
+    val hostGender: String = "FEMALE",
     val upiId: String? = "",
     val educationLevel: String,
     val occupation: String,
@@ -56,6 +57,9 @@ data class GameHistoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val sessionId: String,
     val finalPrize: Long,
+    val grossPrize: Long = 0,
+    val totalDeduction: Long = 0,
+    val incorrectQuestionsJson: String = "[]",
     val highestQuestionReached: Int,
     val outcomeStatus: String, // "CLEARED_7_CRORE", "LOCKED_CHECKPOINT", "QUIT", "TIME_OUT", "WRONG_ANSWER"
     val correctAnswersCount: Int,

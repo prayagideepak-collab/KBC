@@ -123,7 +123,7 @@ fun ProfileInstallingScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "प्रफ़ाइल आधारित लाइव प्रश्न और उत्तर बैंक तैयार हो रहा है (अधिकतम 180 सेकंड)",
+                        text = "प्रफ़ाइल आधारित लाइव प्रश्न और उत्तर बैंक तैयार हो रहा है (कृपया प्रतीक्षा करें)",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = TextSecondary,
                             fontSize = 13.sp

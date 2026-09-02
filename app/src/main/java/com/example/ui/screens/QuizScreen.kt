@@ -1,5 +1,14 @@
 package com.example.ui.screens
 
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -15,6 +24,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,6 +52,8 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material.icons.outlined.Lock
 import com.example.ui.components.DifficultyLevelIndicator
 import com.example.ui.components.ScratchpadDialog
@@ -80,7 +92,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.BilingualCluesList
-import com.example.ui.components.BilingualHintCard
 import com.example.ui.components.BilingualOptionsGrid2x2
 import com.example.ui.components.BilingualQuestionCard
 import com.example.ui.components.DiagramCanvas
@@ -244,34 +255,6 @@ fun QuizScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (state.isFreeHintAvailable) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(GoldPrimary.copy(alpha = 0.2f))
-                                    .border(1.dp, GoldPrimary, RoundedCornerShape(8.dp))
-                                    .clickable { viewModel.showFreeHint() }
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                                    .testTag("free_hint_trigger_button")
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Lightbulb,
-                                        contentDescription = "Hint",
-                                        tint = GoldPrimary,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (isHi) "💡 संकेत (Hint)" else "💡 Hint",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GoldGlow
-                                    )
-                                }
-                            }
-                        }
-
                         val tierMeta = com.example.data.api.GeminiApiClient.getTierDetails(state.currentQNumber)
                         val difficultyColor = when {
                             tierMeta.isCheckpoint -> CheckpointGold
@@ -311,7 +294,7 @@ fun QuizScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Camera Identity Monitored Badge & Warning Banner
+                // Transparent Camera & Audio Monitoring UI
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -319,36 +302,74 @@ fun QuizScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Camera Preview
                     Box(
                         modifier = Modifier
-                            .background(Color(0xFF1E3A1E), RoundedCornerShape(6.dp))
-                            .border(1.dp, SuccessGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                            .testTag("camera_active_badge")
+                            .width(80.dp)
+                            .height(60.dp)
+                            .background(Color.Black, RoundedCornerShape(8.dp))
+                            .border(1.dp, NavyBorder, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (state.isMonitoringActive) {
+                            LiveCameraPreview(modifier = Modifier.fillMaxSize())
                             Box(
                                 modifier = Modifier
-                                    .size(7.dp)
-                                    .background(SuccessGreen, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = "🛡️ Anti-Cheating Monitoring Active",
-                                color = SuccessGreen,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                                    .align(Alignment.TopStart)
+                                    .padding(4.dp)
+                                    .background(AlertRed, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Text("LIVE", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.Videocam, contentDescription = "Camera", tint = TextMuted, modifier = Modifier.size(16.dp))
+                                Text("USER", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
 
-                    if (state.identityWarningCount > 0) {
-                        Text(
-                            text = "Warnings: ${state.identityWarningCount}/3",
-                            color = Color(0xFFFF5252),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    // Status Indicator
+                    val statusColor = when {
+                        state.disqualificationNotice != null -> AlertRed
+                        state.identityWarningCount > 0 -> InfoCyan // Blue warning
+                        else -> SuccessGreen
+                    }
+                    val statusText = when {
+                        state.disqualificationNotice != null -> "Disqualified"
+                        state.identityWarningCount > 0 -> "Warning ${state.identityWarningCount}/3"
+                        else -> "OK"
+                    }
+                    
+                    Box(
+                        modifier = Modifier
+                            .background(statusColor.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                            .border(1.dp, statusColor, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("Status: $statusText", color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    // Audio Level Visualization
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Audio Level", color = TextSecondary, fontSize = 9.sp)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalAlignment = Alignment.Bottom,
+                            modifier = Modifier.height(24.dp).padding(vertical = 2.dp)
+                        ) {
+                            state.audioWaveform.forEach { fraction ->
+                                val barColor = if (fraction > 0.8f) AlertRed else if (fraction > 0.4f) InfoCyan else SuccessGreen
+                                Box(
+                                    modifier = Modifier
+                                        .width(4.dp)
+                                        .fillMaxHeight(fraction)
+                                        .background(barColor, RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                                )
+                            }
+                        }
+                        Text(state.audioState, color = if(state.audioState == "NORMAL") SuccessGreen else InfoCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -511,6 +532,7 @@ fun QuizScreen(
                     onUseAskExpert = { viewModel.useAskExpert() },
                     onUseFlipQuestion = { viewModel.useFlipQuestion() },
                     onUsePowerPaplu = { target -> viewModel.usePowerPaplu(target) },
+                    onUseHint = { viewModel.useHintLifeline() },
                     isEnabled = state.phase != QuestionPhase.QUESTION_READING
                 )
 
@@ -598,67 +620,7 @@ fun QuizScreen(
             )
         }
 
-        // 5. Free Logical Hint Dialog (Bilingual Paired Display)
-        if (state.isFreeHintVisible) {
-            AlertDialog(
-                onDismissRequest = { viewModel.dismissFreeHint() },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Lightbulb,
-                        contentDescription = "Logical Hint",
-                        tint = GoldPrimary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                },
-                title = {
-                    Text(
-                        text = if (isHi) "💡 तार्किक संकेत (Built-in Hint)" else "💡 Logical Deductive Hint",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = GoldGlow
-                        )
-                    )
-                },
-                text = {
-                    Column {
-                        val hHint = question.hintHindi.ifBlank { question.cluesHindi.firstOrNull() ?: "" }
-                        val eHint = question.hintEnglish.ifBlank { question.cluesEnglish.firstOrNull() ?: "" }
-                        BilingualHintCard(
-                            hintHindi = hHint,
-                            hintEnglish = eHint,
-                            preferredLanguage = language
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = if (isHi)
-                                "नोट: यह इन-बिल्ट रीज़निंग संकेत है, इसने कोई लाइफलाइन खर्च नहीं की है।"
-                            else
-                                "Note: This is a built-in reasoning hint and does not consume any lifeline.",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = TextSecondary,
-                                fontSize = 11.sp
-                            )
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { viewModel.dismissFreeHint() },
-                        colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary)
-                    ) {
-                        Text(
-                            text = if (isHi) "समझ गया (Got It)" else "Got It",
-                            color = NavyDeepest,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                },
-                containerColor = NavyCardElevated,
-                shape = RoundedCornerShape(16.dp)
-            )
-        }
-
-        // 6. Quit / Exit Session Confirmation Dialog
+        // 5. Quit / Exit Session Confirmation Dialog
         if (showQuitConfirmation) {
             AlertDialog(
                 onDismissRequest = { showQuitConfirmation = false },
@@ -721,6 +683,42 @@ fun QuizScreen(
             ScratchpadDialog(
                 onDismiss = { showScratchpad = false },
                 isHi = isHi
+            )
+        }
+
+        // 7. Hint Dialog (Auto-dismisses in 5s)
+        if (state.isHintLifelineActive && state.activeHintContent != null) {
+            AlertDialog(
+                onDismissRequest = { /* Auto dismisses */ },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Lightbulb,
+                        contentDescription = "Logical Hint",
+                        tint = GoldPrimary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = if (isHi) "💡 तार्किक संकेत (Hint)" else "💡 Logical Deductive Hint",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = GoldGlow
+                        )
+                    )
+                },
+                text = {
+                    Text(
+                        text = state.activeHintContent,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = TextPrimary,
+                            lineHeight = 20.sp
+                        )
+                    )
+                },
+                confirmButton = {},
+                containerColor = NavyCardElevated,
+                shape = RoundedCornerShape(16.dp)
             )
         }
     }
@@ -1055,4 +1053,52 @@ fun QuizOptionCard(
             )
         }
     }
+}
+
+@Composable
+fun LiveCameraPreview(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val hasCameraHardware = com.example.util.DeviceCapabilities.hasCamera(context)
+    val hasPermission = ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    
+    if (!hasCameraHardware || !hasPermission) {
+        Box(modifier = modifier.background(Color.Black), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.VideocamOff, contentDescription = "Camera Unavailable", tint = TextMuted, modifier = Modifier.size(16.dp))
+                Text(if (!hasCameraHardware) "NO CAM" else "NO PERM", color = TextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        return
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    AndroidView(
+        factory = { ctx ->
+            val previewView = PreviewView(ctx)
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+            cameraProviderFuture.addListener({
+                try {
+                    val cameraProvider = cameraProviderFuture.get()
+                    val preview = Preview.Builder().build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
+                    val cameraSelector = if (cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
+                        CameraSelector.DEFAULT_FRONT_CAMERA
+                    } else {
+                        CameraSelector.DEFAULT_BACK_CAMERA
+                    }
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        preview
+                    )
+                } catch(exc: Exception) {
+                    android.util.Log.e("CameraPreview", "Use case binding failed", exc)
+                }
+            }, ContextCompat.getMainExecutor(ctx))
+            previewView
+        },
+        modifier = modifier
+    )
 }

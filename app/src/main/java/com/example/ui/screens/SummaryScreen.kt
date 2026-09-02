@@ -159,6 +159,7 @@ fun SummaryScreen(
                     "CLEARED_7_CRORE" -> "आपने ₹7 करोड़ का महा-तर्क पूर्ण रूप से सिद्ध कर दिया!"
                     "QUIT" -> "आपने बुद्धिमत्ता से सुरक्षित पड़ाव पर नकदी ली।"
                     "TIMEOUT" -> "समय सीमा समाप्त! सुरक्षित पड़ाव राशि सुरक्षित है।"
+                    "DISQUALIFIED" -> "नियम उल्लंघन! आप अयोग्य घोषित किए गए हैं।"
                     else -> "गलत उत्तर! आपकी सुरक्षित पड़ाव राशि सुरक्षित है।"
                 },
                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -256,6 +257,48 @@ fun SummaryScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(text = "${result.hintsUsedCount}", fontWeight = FontWeight.Bold, color = InfoCyan, fontSize = 13.sp)
                             Text(text = "संकेत", fontSize = 10.sp, color = TextSecondary)
+                        }
+                    }
+
+                    if (result.totalNegativeDeduction > 0) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Gross Prize:", color = TextSecondary, fontSize = 12.sp)
+                            Text("₹${result.grossWinningAmount}", color = TextPrimary, fontSize = 12.sp)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Deduction:", color = com.example.ui.theme.AlertRed, fontSize = 12.sp)
+                            Text("- ₹${result.totalNegativeDeduction}", color = com.example.ui.theme.AlertRed, fontSize = 12.sp)
+                        }
+                        
+                        val deductions = try {
+                            val arr = org.json.JSONArray(result.incorrectQuestionDeductionsJson)
+                            List(arr.length()) { i ->
+                                val obj = arr.getJSONObject(i)
+                                com.example.data.api.IncorrectDeductionDto(
+                                    level = obj.getInt("level"),
+                                    debitAmount = obj.getLong("debitAmount")
+                                )
+                            }
+                        } catch(e: Exception) { emptyList() }
+                        
+                        if (deductions.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            deductions.forEach { 
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("  Level ${it.level} Incorrect", color = TextSecondary, fontSize = 10.sp)
+                                    Text("Debit ₹${it.debitAmount}", color = TextSecondary, fontSize = 10.sp)
+                                }
+                            }
                         }
                     }
                 }
