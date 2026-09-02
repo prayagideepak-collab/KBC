@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.AlertDialog
@@ -87,7 +87,7 @@ fun LifelineControls(
         // 1. 50-50 Lifeline
         LifelineIconButton(
             title = "50-50",
-            icon = Icons.Default.HelpOutline,
+            icon = Icons.AutoMirrored.Filled.HelpOutline,
             isAvailable = isEnabled && lifelineState.is5050Available && !lifelineState.is5050Exhausted,
             accentColor = InfoCyan,
             testTag = "lifeline_5050_button",

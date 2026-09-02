@@ -26,24 +26,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.automirrored.filled.VolumeUp as AutoMirroredVolumeUp
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.outlined.Lock
 import com.example.ui.components.DifficultyLevelIndicator
 import com.example.ui.components.ScratchpadDialog
 import com.example.ui.viewmodel.QuestionPhase
@@ -428,7 +427,7 @@ fun QuizScreen(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.VolumeUp,
+                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                     contentDescription = null,
                                     tint = GoldPrimary,
                                     modifier = Modifier.size(22.dp)
@@ -665,7 +664,7 @@ fun QuizScreen(
                 onDismissRequest = { showQuitConfirmation = false },
                 icon = {
                     Icon(
-                        imageVector = Icons.Default.ExitToApp,
+                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                         contentDescription = "Exit Warning",
                         tint = GoldPrimary,
                         modifier = Modifier.size(32.dp)
@@ -794,7 +793,7 @@ fun QuizHeaderHud(
                     modifier = Modifier.testTag("toggle_voice_narration_button").size(36.dp)
                 ) {
                     Icon(
-                        imageVector = if (isVoiceEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                        imageVector = if (isVoiceEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                         contentDescription = "Voice",
                         tint = if (isVoiceEnabled) GoldGlow else TextSecondary.copy(alpha = 0.6f),
                         modifier = Modifier.size(20.dp)
@@ -959,7 +958,7 @@ fun QuizHeaderHud(
                     modifier = Modifier.testTag("quit_game_button").size(34.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ExitToApp,
+                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                         contentDescription = "Quit",
                         tint = TextSecondary,
                         modifier = Modifier.size(18.dp)
