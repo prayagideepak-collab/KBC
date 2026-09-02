@@ -196,6 +196,18 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         readOnlyJob?.cancel()
         readOnlyJob = null
         currentNarrationToken = System.currentTimeMillis()
+        sessionLadder.clear()
+        stopIdentityMonitoring()
+        if (currentSessionId.isNotBlank()) {
+            val oldSid = currentSessionId
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    repository.invalidateSessionBank(oldSid)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     private fun generateSessionId(): String {
@@ -249,7 +261,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun navigateToHome() {
-        stopTimer()
+        cleanupSessionResources()
         _uiState.value = QuizUiState.HomeScreen
     }
 

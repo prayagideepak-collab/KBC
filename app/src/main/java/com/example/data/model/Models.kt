@@ -5,12 +5,14 @@ data class UserProfile(
     val name: String = "Rahul",
     val age: Int = 18,
     val state: String = "Uttar Pradesh",
+    val city: String = "Lucknow",
     val educationLevel: String = "Graduate",
     val occupation: String = "Aspirant / Student",
     val preparationDomain: String = "Logic",
     val studentClass: String = "Class 8",
     val isStudentMode: Boolean = false,
     val interests: List<String> = listOf("Logical Deductions", "Spatial Vectors", "Forensic Timelines"),
+    val selectedCategories: List<String> = emptyList(),
     val languageMode: String = "ENGLISH",
     val hostGender: String = "FEMALE",
     val upiId: String = "",
@@ -25,7 +27,8 @@ data class KnowledgeProfileVector(
     val financeEconomics: Float = 0.4f,
     val spatialVisual: Float = 0.7f,
     val domainStrength: Float = 0.75f,
-    val regionalContext: String = "Uttar Pradesh"
+    val regionalContext: String = "Uttar Pradesh",
+    val regionalCity: String = "Lucknow"
 )
 
 data class QuestionItem(
@@ -71,8 +74,14 @@ data class QuestionItem(
     val diagramData: String = "",         // JSON / metadata describing parameters for visual canvas
     val audioPatternType: String? = null, // e.g. "waltz_3_4", "syncopated_4_4", "harmonic_interval"
     
-    // Anti-Repeat Registry
+    // Anti-Repeat Multi-Layer Fingerprints & Fresh Session Identity
     val semanticFingerprint: String,
+    val logicFingerprint: String = "",
+    val patternFingerprint: String = "",
+    val conceptFingerprint: String = "",
+    val sessionId: String = "",
+    val generationVersion: Int = 2,
+    val generatedAt: Long = System.currentTimeMillis(),
     val isFlippedOrUsed: Boolean = false
 )
 

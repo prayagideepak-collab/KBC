@@ -204,15 +204,28 @@ object CurrentAffairsReasoningGenerator {
             else ev.adultEligible
         }.sortedByDescending { if (it.state.equals(userState, ignoreCase = true)) 2 else 1 }
 
-        val chosenEvent = matchingEvents.randomOrNull(rand) ?: canonicalEvents.first()
+        val candidates = matchingEvents.shuffled(rand)
+        for (event in candidates) {
+            for (attempt in 0..5) {
+                val candidateRand = Random(seed + attempt * 79 + event.eventId.hashCode())
+                val q = if (isStudent) {
+                    buildJuniorCurrentAffairQuestion(qNumber, event, userProfile, candidateRand)
+                } else {
+                    buildAdultCurrentAffairQuestion(qNumber, event, userProfile, candidateRand)
+                }
+                val fp = q.semanticFingerprint.trim().lowercase()
+                if (!excludedFingerprints.contains(fp)) {
+                    return q
+                }
+            }
+        }
 
-        val question = if (isStudent) {
+        val chosenEvent = candidates.firstOrNull() ?: canonicalEvents.first()
+        return if (isStudent) {
             buildJuniorCurrentAffairQuestion(qNumber, chosenEvent, userProfile, rand)
         } else {
             buildAdultCurrentAffairQuestion(qNumber, chosenEvent, userProfile, rand)
         }
-
-        return question
     }
 
     // =========================================================================
@@ -289,7 +302,14 @@ object CurrentAffairsReasoningGenerator {
                     fiftyFiftyDiscardIndices = discards,
                     fiftyFiftyProofHindi = "विकल्प सीधे चाल-दूरी के गणितीय नियम का उल्लंघन करते हैं।",
                     fiftyFiftyProofEnglish = "Discarded options contradict the linear velocity equation.",
-                    semanticFingerprint = computeSha256("ISRO_SPADEX_${distKm}_${approachSpeed}_$qNumber")
+                    semanticFingerprint = MultiLayerQuestionValidator.computeSemanticFingerprint(
+                        MultiLayerQuestionValidator.normalizeText(qEn),
+                        MultiLayerQuestionValidator.normalizeText(optsList[correctIdx].second)
+                    ),
+                    logicFingerprint = MultiLayerQuestionValidator.computeLogicFingerprint("ca_spadex", "${distKm}_$approachSpeed"),
+                    conceptFingerprint = MultiLayerQuestionValidator.computeConceptFingerprint("Science & Tech", "Orbital Logistics", "ISRO_SPADEX_2025"),
+                    patternFingerprint = MultiLayerQuestionValidator.computePatternFingerprint("current_affairs", "kinematics_docking"),
+                    generationVersion = 2
                 )
             }
             "TIGER_CENSUS_CAMERA_TRAP" -> {
@@ -353,7 +373,14 @@ object CurrentAffairsReasoningGenerator {
                     fiftyFiftyProofEnglish = "Excluding duplicate corridor overlaps conclusively yields $totalUnique.",
                     diagramType = "venn_logic",
                     diagramData = "{\"setA\":$zoneA,\"setB\":$zoneB,\"intersection\":$sharedCorridor}",
-                    semanticFingerprint = computeSha256("TIGER_SET_${zoneA}_${zoneB}_${sharedCorridor}_$qNumber")
+                    semanticFingerprint = MultiLayerQuestionValidator.computeSemanticFingerprint(
+                        MultiLayerQuestionValidator.normalizeText(qEn),
+                        MultiLayerQuestionValidator.normalizeText(optsList[correctIdx].second)
+                    ),
+                    logicFingerprint = MultiLayerQuestionValidator.computeLogicFingerprint("ca_tiger_census", "${zoneA}_${zoneB}_$sharedCorridor"),
+                    conceptFingerprint = MultiLayerQuestionValidator.computeConceptFingerprint("Environment", "Wildlife Corridor", "TIGER_CENSUS_CAMERA_TRAP"),
+                    patternFingerprint = MultiLayerQuestionValidator.computePatternFingerprint("current_affairs", "set_inclusion_exclusion"),
+                    generationVersion = 2
                 )
             }
             else -> {
@@ -418,7 +445,14 @@ object CurrentAffairsReasoningGenerator {
                     fiftyFiftyDiscardIndices = discards,
                     fiftyFiftyProofHindi = "कुल उत्पादन और उपभोग का अंतर स्पष्ट रूप से $netExportKwh kWh है।",
                     fiftyFiftyProofEnglish = "The difference between generation and self-consumption is precisely $netExportKwh kWh.",
-                    semanticFingerprint = computeSha256("SOLAR_NET_${panels}_${generationPerPanel}_${dailyHouseholdUsageKwh}_$qNumber")
+                    semanticFingerprint = MultiLayerQuestionValidator.computeSemanticFingerprint(
+                        MultiLayerQuestionValidator.normalizeText(qEn),
+                        MultiLayerQuestionValidator.normalizeText(optsList[correctIdx].second)
+                    ),
+                    logicFingerprint = MultiLayerQuestionValidator.computeLogicFingerprint("ca_surya_ghar", "${panels}_${generationPerPanel}_$dailyHouseholdUsageKwh"),
+                    conceptFingerprint = MultiLayerQuestionValidator.computeConceptFingerprint("Govt Schemes", "Clean Energy Balance", "PM_SURYA_GHAR_SOLAR"),
+                    patternFingerprint = MultiLayerQuestionValidator.computePatternFingerprint("current_affairs", "energy_balance"),
+                    generationVersion = 2
                 )
             }
         }
@@ -495,7 +529,14 @@ object CurrentAffairsReasoningGenerator {
                     fiftyFiftyDiscardIndices = discards,
                     fiftyFiftyProofHindi = "अन्य विकल्प या तो 100% शून्य-हानि मान लेते हैं या अनुपात गलत लगाते हैं।",
                     fiftyFiftyProofEnglish = "Discarded options ignore thermodynamic losses or miscalculate efficiency.",
-                    semanticFingerprint = computeSha256("HYDROGEN_ENERGY_${powerInputMw}_${efficiencyPct}_$qNumber")
+                    semanticFingerprint = MultiLayerQuestionValidator.computeSemanticFingerprint(
+                        MultiLayerQuestionValidator.normalizeText(qEn),
+                        MultiLayerQuestionValidator.normalizeText(optsList[correctIdx].second)
+                    ),
+                    logicFingerprint = MultiLayerQuestionValidator.computeLogicFingerprint("ca_green_hydrogen", "${powerInputMw}_$efficiencyPct"),
+                    conceptFingerprint = MultiLayerQuestionValidator.computeConceptFingerprint("National Policy", "Thermodynamic Energy Logic", "GREEN_HYDROGEN_CORRIDORS"),
+                    patternFingerprint = MultiLayerQuestionValidator.computePatternFingerprint("current_affairs", "energy_conservation"),
+                    generationVersion = 2
                 )
             }
             "MAHA_VADHAVAN_MEGA_PORT", "UP_AI_DATA_CENTER_EXPRESSWAY" -> {
@@ -557,7 +598,14 @@ object CurrentAffairsReasoningGenerator {
                     fiftyFiftyDiscardIndices = discards,
                     fiftyFiftyProofHindi = "कुल $corridorLengthKm किमी पर $sensorNodeIntervalKm किमी के अंतरालों पर ठीक $totalNodes बिंदु बनते हैं।",
                     fiftyFiftyProofEnglish = "Placing nodes at 0 km and each subsequent $sensorNodeIntervalKm km yields exactly $totalNodes.",
-                    semanticFingerprint = computeSha256("EXPRESSWAY_GRID_${corridorLengthKm}_${sensorNodeIntervalKm}_$qNumber")
+                    semanticFingerprint = MultiLayerQuestionValidator.computeSemanticFingerprint(
+                        MultiLayerQuestionValidator.normalizeText(qEn),
+                        MultiLayerQuestionValidator.normalizeText(optsList[correctIdx].second)
+                    ),
+                    logicFingerprint = MultiLayerQuestionValidator.computeLogicFingerprint("ca_expressway_nodes", "${corridorLengthKm}_$sensorNodeIntervalKm"),
+                    conceptFingerprint = MultiLayerQuestionValidator.computeConceptFingerprint("Regional Infrastructure", "Discrete Grid Logic", "EXPRESSWAY_GRID"),
+                    patternFingerprint = MultiLayerQuestionValidator.computePatternFingerprint("current_affairs", "fence_post_counting"),
+                    generationVersion = 2
                 )
             }
             else -> {
@@ -622,7 +670,14 @@ object CurrentAffairsReasoningGenerator {
                     fiftyFiftyDiscardIndices = discards,
                     fiftyFiftyProofHindi = "शेष बची संख्या $remainingGpus का विभाजन करने पर Hub-C का हिस्सा $hubCGpus ही आता है।",
                     fiftyFiftyProofEnglish = "Evaluating remaining balance $remainingGpus yields exactly $hubCGpus GPUs for Hub-C.",
-                    semanticFingerprint = computeSha256("AI_GPU_CLUSTER_${hubAFrac}_${hubBFracOfRemaining}_$qNumber")
+                    semanticFingerprint = MultiLayerQuestionValidator.computeSemanticFingerprint(
+                        MultiLayerQuestionValidator.normalizeText(qEn),
+                        MultiLayerQuestionValidator.normalizeText(optsList[correctIdx].second)
+                    ),
+                    logicFingerprint = MultiLayerQuestionValidator.computeLogicFingerprint("ca_ai_gpu_distribution", "${hubAFrac}_$hubBFracOfRemaining"),
+                    conceptFingerprint = MultiLayerQuestionValidator.computeConceptFingerprint("National AI Policy", "Sequential Allocation Logic", "AI_SUPERCOMPUTER_AIRAWAT"),
+                    patternFingerprint = MultiLayerQuestionValidator.computePatternFingerprint("current_affairs", "sequential_allocation"),
+                    generationVersion = 2
                 )
             }
         }

@@ -57,6 +57,7 @@ class TarkRepository(
                 name = defaultProfile.name,
                 age = defaultProfile.age,
                 state = defaultProfile.state,
+                city = defaultProfile.city,
                 languageMode = defaultProfile.languageMode,
                 hostGender = defaultProfile.hostGender,
                 upiId = defaultProfile.upiId,
@@ -97,6 +98,7 @@ class TarkRepository(
             name = profile.name,
             age = profile.age,
             state = profile.state,
+            city = profile.city,
             languageMode = profile.languageMode.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "ENGLISH" },
             hostGender = profile.hostGender,
             upiId = profile.upiId,
@@ -143,6 +145,14 @@ class TarkRepository(
         pipeline.getCachedSessionLadder(sessionId)
     }
 
+    suspend fun invalidateSessionBank(sessionId: String) = withContext(Dispatchers.IO) {
+        pipeline.invalidateSessionBank(sessionId)
+    }
+
+    suspend fun invalidateAllSessionBanks() = withContext(Dispatchers.IO) {
+        pipeline.invalidateAllSessionBanks()
+    }
+
     /**
      * Preloads all 17 questions for a new game session at once in background memory.
      * Guarantees that advancing to the next question is an instantaneous O(1) swap (<= 0.5s).
@@ -168,28 +178,33 @@ class TarkRepository(
         customFingerprints: Set<String>? = null,
         customLogicFingerprints: Set<String>? = null
     ): QuestionItem = withContext(Dispatchers.IO) {
-        val servedFingerprints = customFingerprints ?: questionDao.getAllServedFingerprints().toSet()
-        val servedLogicFingerprints = customLogicFingerprints ?: questionDao.getAllServedLogicFingerprints().toSet()
+        val servedNormalizedTexts = questionDao.getAllServedNormalizedTexts().toSet()
+        val servedSemanticFingerprints = (questionDao.getAllServedSemanticFingerprints() + (customFingerprints ?: questionDao.getAllServedFingerprints())).toSet()
+        val servedLogicFingerprints = (customLogicFingerprints ?: questionDao.getAllServedLogicFingerprints()).toSet()
+        val servedConceptFingerprints = questionDao.getAllServedConceptFingerprints().toSet()
+
+        val history = MultiLayerQuestionValidator.HistoricalRegistry(
+            servedNormalizedTexts = servedNormalizedTexts,
+            servedSemanticFingerprints = servedSemanticFingerprints,
+            servedLogicFingerprints = servedLogicFingerprints,
+            servedConceptFingerprints = servedConceptFingerprints
+        )
 
         if (isCurrentAffairsSlot) {
             return@withContext getCurrentAffairsQuestionForTier(
                 qNumber = qNumber,
                 userProfile = userProfile,
-                servedFingerprints = servedFingerprints,
+                servedFingerprints = servedSemanticFingerprints,
                 flippedQuestionIds = flippedQuestionIds
             )
         }
 
-        val isStudent = userProfile.preparationDomain.contains("Student", true) || userProfile.isStudentMode
-
         // Instant Procedural Dynamic Logic Engine (< 2ms)
         val selectedQuestion = DynamicLogicEngine.generateUniqueQuestion(
             qNumber = qNumber,
-            isStudent = isStudent,
-            studentAge = userProfile.age,
-            studentClass = userProfile.studentClass,
-            excludedFingerprints = servedFingerprints,
-            excludedLogicFingerprints = servedLogicFingerprints
+            userProfile = userProfile,
+            history = history,
+            currentSessionQuestions = emptyList()
         )
 
         // Register in Room Database (Global permanent uniqueness)
@@ -284,6 +299,7 @@ class TarkRepository(
             name = currentProfile.name,
             age = currentProfile.age,
             state = currentProfile.state,
+            city = currentProfile.city,
             languageMode = currentProfile.languageMode.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "ENGLISH" },
             hostGender = currentProfile.hostGender,
             upiId = currentProfile.upiId,
@@ -313,18 +329,25 @@ class TarkRepository(
             throw IllegalArgumentException("Invalid language mode: $languageMode.")
         }
         val qFp = question.semanticFingerprint.trim().lowercase()
-        val lFp = "logic_q${question.qNumber}_${question.category.lowercase().replace(" ", "_")}_${qFp.take(16)}"
+        val lFp = question.logicFingerprint.trim().lowercase()
+        val cFp = question.conceptFingerprint.trim().lowercase()
+        val pFp = question.patternFingerprint.trim().lowercase()
         
         val entity = QuestionRegistryEntity(
-            id = "reg_${System.currentTimeMillis()}_${Math.random()}",
+            id = "reg_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}",
             questionId = question.id,
             questionFingerprint = qFp,
             logicFingerprint = lFp,
+            conceptFingerprint = cFp,
+            patternFingerprint = pFp,
+            generationVersion = question.generationVersion,
             canonicalQuestion = question.questionEnglish.ifBlank { question.questionHindi },
             languageMode = validLang,
             difficultyTier = question.qNumber,
             servedByProfileId = profileId,
-            usedAt = System.currentTimeMillis()
+            usedAt = System.currentTimeMillis(),
+            semanticFingerprint = qFp,
+            normalizedQuestionText = MultiLayerQuestionValidator.normalizeText(question.questionEnglish.ifBlank { question.questionHindi })
         )
         try {
             questionDao.registerQuestion(entity)
@@ -392,7 +415,8 @@ class TarkRepository(
             financeEconomics = finance.coerceIn(0.1f, 1.0f),
             spatialVisual = spatial.coerceIn(0.1f, 1.0f),
             domainStrength = (logic * 0.5f + gk * 0.5f).coerceIn(0.1f, 1.0f),
-            regionalContext = profile.state
+            regionalContext = profile.state,
+            regionalCity = profile.city
         )
     }
 
@@ -413,6 +437,7 @@ class TarkRepository(
             name = entity.name,
             age = entity.age,
             state = entity.state,
+            city = entity.city,
             languageMode = entity.languageMode.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "ENGLISH" },
             hostGender = entity.hostGender,
             upiId = entity.upiId ?: "",
@@ -430,7 +455,8 @@ class TarkRepository(
                 financeEconomics = entity.financeScore,
                 spatialVisual = entity.spatialScore,
                 domainStrength = (entity.logicScore * 0.6f + entity.gkScore * 0.4f),
-                regionalContext = entity.state
+                regionalContext = entity.state,
+                regionalCity = entity.city
             )
         )
     }

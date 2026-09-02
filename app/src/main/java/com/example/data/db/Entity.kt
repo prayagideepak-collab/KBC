@@ -22,7 +22,12 @@ data class QuestionRegistryEntity(
     val servedBySessionId: String = "",
     val servedByProfileId: String = "",
     val isConsumed: Boolean = true,
-    val usedAt: Long = System.currentTimeMillis()
+    val usedAt: Long = System.currentTimeMillis(),
+    val semanticFingerprint: String = "",
+    val conceptFingerprint: String = "",
+    val patternFingerprint: String = "",
+    val generationVersion: Int = 2,
+    val normalizedQuestionText: String = ""
 )
 
 @Entity(tableName = "user_profile_table")
@@ -31,6 +36,7 @@ data class UserProfileEntity(
     val name: String,
     val age: Int,
     val state: String,
+    val city: String = "Lucknow",
     val languageMode: String = "ENGLISH",
     val hostGender: String = "FEMALE",
     val upiId: String? = "",
@@ -135,11 +141,20 @@ data class SessionQuestionBankCacheEntity(
     val profileId: String,
     val languageMode: String,
     val isJuniorMode: Boolean,
-    val status: String, // "PREPARING", "READY", "ACTIVE", "COMPLETED", "FAILED"
+    val status: String, // "PREPARING", "READY", "ACTIVE", "COMPLETED", "FAILED", "INVALIDATED"
     val questionsJson: String, // JSON serialization of all 17 QuestionItems
     val currentAffairEventIdsJson: String = "[]",
     val createdAt: Long = System.currentTimeMillis(),
     val preparedAt: Long = System.currentTimeMillis(),
-    val sourceSummary: String = "Online Intelligence & Reasoning Pipeline"
+    val sourceSummary: String = "Online Intelligence & Reasoning Pipeline",
+    val state: String = "",
+    val city: String = "",
+    val studentClass: String = "",
+    val categoriesJson: String = "[]",
+    val preparationDomain: String = "",
+    val generationVersion: Int = 2,
+    val sourceVersion: String = "GEN_V2_AUTHORITATIVE",
+    val configHash: String = "",
+    val isInvalidated: Boolean = false
 )
 

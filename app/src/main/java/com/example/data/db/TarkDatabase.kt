@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CurrentAffairEntity::class,
         SessionQuestionBankCacheEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class TarkDatabase : RoomDatabase() {
@@ -225,6 +225,39 @@ abstract class TarkDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. User profile city
+                db.execSQL("ALTER TABLE user_profile_table ADD COLUMN city TEXT NOT NULL DEFAULT 'Lucknow'")
+
+                // 2. Question registry multi-layer fingerprints & generation version
+                db.execSQL("ALTER TABLE question_registry ADD COLUMN semanticFingerprint TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE question_registry ADD COLUMN conceptFingerprint TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE question_registry ADD COLUMN patternFingerprint TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE question_registry ADD COLUMN generationVersion INTEGER NOT NULL DEFAULT 2")
+                db.execSQL("ALTER TABLE question_registry ADD COLUMN normalizedQuestionText TEXT NOT NULL DEFAULT ''")
+
+                // 3. Session Question Bank Cache: Hard Reset fields & invalidate all existing caches
+                db.execSQL("ALTER TABLE session_question_bank_cache ADD COLUMN state TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE session_question_bank_cache ADD COLUMN city TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE session_question_bank_cache ADD COLUMN studentClass TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE session_question_bank_cache ADD COLUMN categoriesJson TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE session_question_bank_cache ADD COLUMN preparationDomain TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE session_question_bank_cache ADD COLUMN generationVersion INTEGER NOT NULL DEFAULT 2")
+                db.execSQL("ALTER TABLE session_question_bank_cache ADD COLUMN sourceVersion TEXT NOT NULL DEFAULT 'GEN_V2_AUTHORITATIVE'")
+                db.execSQL("ALTER TABLE session_question_bank_cache ADD COLUMN configHash TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE session_question_bank_cache ADD COLUMN isInvalidated INTEGER NOT NULL DEFAULT 0")
+
+                // AUTHORITATIVE HARD RESET: Invalidate all existing session banks!
+                db.execSQL("UPDATE session_question_bank_cache SET status = 'INVALIDATED', isInvalidated = 1")
+
+                db.execSQL("""
+                    INSERT OR REPLACE INTO `app_metadata_table` (`versionCode`, `versionName`, `updatedAt`, `releaseNotes`)
+                    VALUES (15, '2.0.0', ${System.currentTimeMillis()}, 'Fresh Question Architecture and Authoritative Hard Reset')
+                """)
+            }
+        }
+
         fun getDatabase(context: Context): TarkDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -232,7 +265,7 @@ abstract class TarkDatabase : RoomDatabase() {
                     TarkDatabase::class.java,
                     "tark_shastra_database.db"
                 )
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                     .build()
                 INSTANCE = instance
                 instance

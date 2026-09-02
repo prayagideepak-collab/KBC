@@ -17,6 +17,15 @@ interface QuestionDao {
     @Query("SELECT logicFingerprint FROM question_registry")
     suspend fun getAllServedLogicFingerprints(): List<String>
 
+    @Query("SELECT semanticFingerprint FROM question_registry WHERE semanticFingerprint != ''")
+    suspend fun getAllServedSemanticFingerprints(): List<String>
+
+    @Query("SELECT conceptFingerprint FROM question_registry WHERE conceptFingerprint != ''")
+    suspend fun getAllServedConceptFingerprints(): List<String>
+
+    @Query("SELECT normalizedQuestionText FROM question_registry WHERE normalizedQuestionText != ''")
+    suspend fun getAllServedNormalizedTexts(): List<String>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun registerQuestion(entity: QuestionRegistryEntity): Long
 
@@ -113,11 +122,11 @@ interface CurrentAffairsDao {
 
 @Dao
 interface SessionBankCacheDao {
-    @Query("SELECT * FROM session_question_bank_cache WHERE sessionId = :sessionId LIMIT 1")
+    @Query("SELECT * FROM session_question_bank_cache WHERE sessionId = :sessionId AND isInvalidated = 0 LIMIT 1")
     suspend fun getCachedSessionBank(sessionId: String): SessionQuestionBankCacheEntity?
 
-    @Query("SELECT * FROM session_question_bank_cache WHERE status = 'READY' ORDER BY preparedAt DESC LIMIT 1")
-    suspend fun getLatestReadySessionBank(): SessionQuestionBankCacheEntity?
+    @Query("SELECT * FROM session_question_bank_cache WHERE sessionId = :sessionId LIMIT 1")
+    suspend fun getSessionBankRaw(sessionId: String): SessionQuestionBankCacheEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateSessionBank(entity: SessionQuestionBankCacheEntity)
@@ -125,7 +134,19 @@ interface SessionBankCacheDao {
     @Query("UPDATE session_question_bank_cache SET status = :status WHERE sessionId = :sessionId")
     suspend fun updateSessionBankStatus(sessionId: String, status: String)
 
-    @Query("DELETE FROM session_question_bank_cache WHERE createdAt < :cutoffTimeMillis AND status IN ('COMPLETED', 'FAILED')")
+    @Query("UPDATE session_question_bank_cache SET status = 'INVALIDATED', isInvalidated = 1 WHERE sessionId = :sessionId")
+    suspend fun invalidateSessionBank(sessionId: String)
+
+    @Query("UPDATE session_question_bank_cache SET status = 'INVALIDATED', isInvalidated = 1 WHERE sessionId != :currentSessionId")
+    suspend fun invalidateAllOlderSessionBanks(currentSessionId: String)
+
+    @Query("UPDATE session_question_bank_cache SET status = 'INVALIDATED', isInvalidated = 1")
+    suspend fun invalidateAllSessionBanks()
+
+    @Query("DELETE FROM session_question_bank_cache WHERE sessionId = :sessionId")
+    suspend fun deleteSessionBank(sessionId: String)
+
+    @Query("DELETE FROM session_question_bank_cache WHERE createdAt < :cutoffTimeMillis OR isInvalidated = 1 OR status IN ('COMPLETED', 'FAILED', 'INVALIDATED')")
     suspend fun pruneOldSessionBanks(cutoffTimeMillis: Long): Int
 }
 

@@ -91,13 +91,16 @@ class QuestionIntelligencePipelineTest {
 
     @Test
     fun testQuestionSerializerRoundTrip() {
+        val testProfile = UserProfile(
+            isStudentMode = true,
+            age = 12,
+            studentClass = "Class 7"
+        )
         val original = DynamicLogicEngine.generateUniqueQuestion(
             qNumber = 5,
-            isStudent = true,
-            studentAge = 12,
-            studentClass = "Class 7",
-            excludedFingerprints = emptySet(),
-            excludedLogicFingerprints = emptySet()
+            userProfile = testProfile,
+            history = com.example.data.repository.MultiLayerQuestionValidator.HistoricalRegistry(),
+            currentSessionQuestions = emptyList()
         )
 
         val json = QuestionSerializer.serializeQuestion(original)

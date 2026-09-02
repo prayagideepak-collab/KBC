@@ -138,6 +138,7 @@ fun ProfileScreen(
 
     var name by remember(currentProfile) { mutableStateOf(currentProfile.name) }
     var selectedState by remember(currentProfile) { mutableStateOf(currentProfile.state) }
+    var selectedCity by remember(currentProfile) { mutableStateOf(currentProfile.city) }
     var selectedLanguage by remember(currentProfile) { 
         val lang = currentProfile.languageMode.uppercase()
         mutableStateOf(if (lang == "HINDI") "HINDI" else "ENGLISH")
@@ -430,6 +431,24 @@ fun ProfileScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("profile_state_input"),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (isJuniorMode) InfoCyan else GoldPrimary,
+                            unfocusedBorderColor = NavyBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = selectedCity,
+                        onValueChange = { selectedCity = it },
+                        label = { Text("शहर / जिला (City / District)") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("profile_city_input"),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = if (isJuniorMode) InfoCyan else GoldPrimary,
                             unfocusedBorderColor = NavyBorder,
@@ -1134,6 +1153,7 @@ fun ProfileScreen(
                         name = name,
                         age = finalAge,
                         state = selectedState,
+                        city = selectedCity,
                         educationLevel = finalEdu,
                         occupation = finalOcc,
                         preparationDomain = finalDomain,

@@ -45,6 +45,12 @@ object QuestionSerializer {
                 put("audioPatternType", q.audioPatternType)
             }
             put("semanticFingerprint", q.semanticFingerprint)
+            put("logicFingerprint", q.logicFingerprint)
+            put("patternFingerprint", q.patternFingerprint)
+            put("conceptFingerprint", q.conceptFingerprint)
+            put("sessionId", q.sessionId)
+            put("generationVersion", q.generationVersion)
+            put("generatedAt", q.generatedAt)
             put("isFlippedOrUsed", q.isFlippedOrUsed)
         }
     }
@@ -117,6 +123,12 @@ object QuestionSerializer {
             diagramData = obj.optString("diagramData", ""),
             audioPatternType = if (obj.has("audioPatternType") && !obj.isNull("audioPatternType")) obj.getString("audioPatternType") else null,
             semanticFingerprint = obj.optString("semanticFingerprint", ""),
+            logicFingerprint = obj.optString("logicFingerprint", ""),
+            patternFingerprint = obj.optString("patternFingerprint", ""),
+            conceptFingerprint = obj.optString("conceptFingerprint", ""),
+            sessionId = obj.optString("sessionId", ""),
+            generationVersion = obj.optInt("generationVersion", 2),
+            generatedAt = obj.optLong("generatedAt", System.currentTimeMillis()),
             isFlippedOrUsed = obj.optBoolean("isFlippedOrUsed", false)
         )
     }

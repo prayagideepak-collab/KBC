@@ -108,6 +108,13 @@ class QuestionIntelligencePipeline(
     ): Map<Int, QuestionItem> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
 
+        // 0. Authoritative Hard Reset: Invalidate all previous session banks immediately
+        try {
+            sessionBankCacheDao.invalidateAllSessionBanks()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         // 1. Stage: CHECKING_NETWORK
         onProgress(
             PreparationProgress(
@@ -195,9 +202,17 @@ class QuestionIntelligencePipeline(
         }
 
         // 3. Stage: GENERATING_QUESTIONS & 4. VALIDATING_QUESTIONS & 5. REMOVING_DUPLICATES
-        val isStudent = userProfile.preparationDomain.contains("Student", true) || userProfile.isStudentMode
-        val servedFingerprints = questionDao.getAllServedFingerprints().toMutableSet()
-        val servedLogicFingerprints = questionDao.getAllServedLogicFingerprints().toMutableSet()
+        val servedNormTexts = questionDao.getAllServedNormalizedTexts().toMutableSet()
+        val servedSemFps = (questionDao.getAllServedSemanticFingerprints() + questionDao.getAllServedFingerprints()).toMutableSet()
+        val servedLogicFps = questionDao.getAllServedLogicFingerprints().toMutableSet()
+        val servedConceptFps = questionDao.getAllServedConceptFingerprints().toMutableSet()
+
+        var currentHistory = MultiLayerQuestionValidator.HistoricalRegistry(
+            servedNormalizedTexts = servedNormTexts,
+            servedSemanticFingerprints = servedSemFps,
+            servedLogicFingerprints = servedLogicFps,
+            servedConceptFingerprints = servedConceptFps
+        )
 
         // Allocate slots: 2 Current Affairs slots (1 in Q1-5, 1 in Q6-10)
         val caSlot1 = (2..4).random()
@@ -227,49 +242,73 @@ class QuestionIntelligencePipeline(
             var question: QuestionItem? = null
             var attempts = 0
 
-            while (question == null && attempts < 25) {
+            while (question == null && attempts < 35) {
                 attempts++
                 val candidate = if (isCa) {
                     CurrentAffairsReasoningGenerator.generateReasoningQuestion(
                         qNumber = tier,
                         userProfile = userProfile,
-                        excludedFingerprints = servedFingerprints
+                        excludedFingerprints = currentHistory.servedSemanticFingerprints,
+                        seed = (sessionId.hashCode() + tier * 101 + attempts * 17).let { if (it == 0) 1 else kotlin.math.abs(it) }
                     )
                 } else {
                     DynamicLogicEngine.generateUniqueQuestion(
                         qNumber = tier,
-                        isStudent = isStudent,
-                        studentAge = userProfile.age,
-                        studentClass = userProfile.studentClass,
-                        excludedFingerprints = servedFingerprints,
-                        excludedLogicFingerprints = servedLogicFingerprints,
-                        salt = (sessionId.hashCode() + tier * 97 + attempts * 13)
+                        userProfile = userProfile,
+                        history = currentHistory,
+                        currentSessionQuestions = candidateLadder.values,
+                        salt = (sessionId.hashCode() + tier * 97 + attempts * 31)
                     )
                 }
 
-                // Check Uniqueness & Validation
-                val fp = candidate.semanticFingerprint.trim().lowercase()
-                val lFp = "logic_q${tier}_${candidate.category.lowercase().replace(" ", "_")}_${fp.take(16)}"
+                // Strict Multi-Layer Validation Watchdog
+                val validationResult = MultiLayerQuestionValidator.validateCandidate(
+                    candidate = candidate,
+                    history = currentHistory,
+                    currentSessionQuestions = candidateLadder.values
+                )
 
-                if (!servedFingerprints.contains(fp) && !servedLogicFingerprints.contains(lFp)) {
-                    // Valid and unique!
+                if (validationResult.isValid) {
                     question = candidate
-                    servedFingerprints.add(fp)
-                    servedLogicFingerprints.add(lFp)
+                    val semFp = candidate.semanticFingerprint.trim().lowercase()
+                    val logFp = candidate.logicFingerprint.trim().lowercase()
+                    val normText = MultiLayerQuestionValidator.normalizeText(candidate.questionEnglish.ifBlank { candidate.questionHindi })
+                    servedSemFps.add(semFp)
+                    if (logFp.isNotBlank()) servedLogicFps.add(logFp)
+                    if (normText.isNotBlank()) servedNormTexts.add(normText)
+                    if (candidate.conceptFingerprint.isNotBlank()) servedConceptFps.add(candidate.conceptFingerprint.trim().lowercase())
+                    currentHistory = currentHistory.copy(
+                        servedNormalizedTexts = servedNormTexts,
+                        servedSemanticFingerprints = servedSemFps,
+                        servedLogicFingerprints = servedLogicFps,
+                        servedConceptFingerprints = servedConceptFps
+                    )
                 }
             }
 
             if (question == null) {
-                // Fallback guarantee
-                question = DynamicLogicEngine.generateUniqueQuestion(
+                // Fallback guarantee with high-entropy salt and explicit validation
+                val fallbackCandidate = DynamicLogicEngine.generateUniqueQuestion(
                     qNumber = tier,
-                    isStudent = isStudent,
-                    studentAge = userProfile.age,
-                    studentClass = userProfile.studentClass,
-                    excludedFingerprints = servedFingerprints,
-                    excludedLogicFingerprints = servedLogicFingerprints
+                    userProfile = userProfile,
+                    history = currentHistory,
+                    currentSessionQuestions = candidateLadder.values,
+                    salt = (System.currentTimeMillis().toInt() + tier * 1337)
                 )
-                servedFingerprints.add(question.semanticFingerprint.trim().lowercase())
+                question = fallbackCandidate
+                val semFp = fallbackCandidate.semanticFingerprint.trim().lowercase()
+                val logFp = fallbackCandidate.logicFingerprint.trim().lowercase()
+                val normText = MultiLayerQuestionValidator.normalizeText(fallbackCandidate.questionEnglish.ifBlank { fallbackCandidate.questionHindi })
+                servedSemFps.add(semFp)
+                if (logFp.isNotBlank()) servedLogicFps.add(logFp)
+                if (normText.isNotBlank()) servedNormTexts.add(normText)
+                if (fallbackCandidate.conceptFingerprint.isNotBlank()) servedConceptFps.add(fallbackCandidate.conceptFingerprint.trim().lowercase())
+                currentHistory = currentHistory.copy(
+                    servedNormalizedTexts = servedNormTexts,
+                    servedSemanticFingerprints = servedSemFps,
+                    servedLogicFingerprints = servedLogicFps,
+                    servedConceptFingerprints = servedConceptFps
+                )
             }
 
             candidateLadder[tier] = question
@@ -290,22 +329,31 @@ class QuestionIntelligencePipeline(
         delay(150)
 
         // Register all generated questions in Room QuestionDao (Permanent Registry)
+        val isStudent = userProfile.preparationDomain.contains("Student", true) || userProfile.isStudentMode
         val registryEntities = candidateLadder.values.map { q ->
             val validLang = userProfile.languageMode.uppercase().let { if (it in listOf("HINDI", "ENGLISH", "BILINGUAL")) it else "ENGLISH" }
             val qFp = q.semanticFingerprint.trim().lowercase()
-            val lFp = "logic_q${q.qNumber}_${q.category.lowercase().replace(" ", "_")}_${qFp.take(16)}"
+            val lFp = q.logicFingerprint.trim().lowercase()
+            val cFp = q.conceptFingerprint.trim().lowercase()
+            val pFp = q.patternFingerprint.trim().lowercase()
+            val normText = MultiLayerQuestionValidator.normalizeText(q.questionEnglish.ifBlank { q.questionHindi })
             QuestionRegistryEntity(
-                id = "reg_${sessionId}_q${q.qNumber}_${System.currentTimeMillis()}",
+                id = "reg_${sessionId}_q${q.qNumber}_${UUID.randomUUID().toString().take(8)}",
                 questionId = q.id,
                 questionFingerprint = qFp,
                 logicFingerprint = lFp,
+                conceptFingerprint = cFp,
+                patternFingerprint = pFp,
+                generationVersion = q.generationVersion,
                 canonicalQuestion = q.questionEnglish.ifBlank { q.questionHindi },
                 languageMode = validLang,
                 difficultyTier = q.qNumber,
                 servedBySessionId = sessionId,
                 servedByProfileId = userProfile.id,
                 isConsumed = true,
-                usedAt = System.currentTimeMillis()
+                usedAt = System.currentTimeMillis(),
+                semanticFingerprint = qFp,
+                normalizedQuestionText = normText
             )
         }
 
@@ -327,7 +375,9 @@ class QuestionIntelligencePipeline(
             currentAffairEventIdsJson = JSONArray(currentAffairEventIds).toString(),
             createdAt = startTime,
             preparedAt = System.currentTimeMillis(),
-            sourceSummary = "Verified Online Intelligence, Dynamic Logic & NCERT Reasoning"
+            sourceSummary = "Verified Online Intelligence, Dynamic Logic & NCERT Reasoning",
+            isInvalidated = false,
+            generationVersion = 2
         )
         sessionBankCacheDao.insertOrUpdateSessionBank(cacheEntity)
 
@@ -350,14 +400,28 @@ class QuestionIntelligencePipeline(
 
     /**
      * Loads pre-cached session bank from Room Database for offline gameplay.
+     * Enforces authoritative hard reset: rejects invalidated or legacy banks.
      */
     suspend fun getCachedSessionLadder(sessionId: String): Map<Int, QuestionItem>? = withContext(Dispatchers.IO) {
         val cached = sessionBankCacheDao.getCachedSessionBank(sessionId) ?: return@withContext null
+        if (cached.isInvalidated) return@withContext null
+        if (cached.generationVersion < 2) return@withContext null
         if (cached.status != "READY" && cached.status != "ACTIVE") return@withContext null
         val questions = QuestionSerializer.deserializeQuestionList(cached.questionsJson)
         if (questions.size < 17) return@withContext null
+        if (questions.any { it.generationVersion < 2 || it.semanticFingerprint.isBlank() || it.logicFingerprint.isBlank() }) {
+            return@withContext null
+        }
         val map = mutableMapOf<Int, QuestionItem>()
         questions.forEach { map[it.qNumber] = it }
         map
+    }
+
+    suspend fun invalidateSessionBank(sessionId: String) = withContext(Dispatchers.IO) {
+        sessionBankCacheDao.invalidateSessionBank(sessionId)
+    }
+
+    suspend fun invalidateAllSessionBanks() = withContext(Dispatchers.IO) {
+        sessionBankCacheDao.invalidateAllSessionBanks()
     }
 }
