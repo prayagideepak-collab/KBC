@@ -16,8 +16,7 @@ object QuestionSerializer {
             } else {
                 put("timeLimitSeconds", JSONObject.NULL)
             }
-            put("prizePoints", q.prizePoints)
-            put("prizeFormatted", q.prizeFormatted)
+            put("points", q.points)
             put("isCheckpoint", q.isCheckpoint)
             put("checkpointTitle", q.checkpointTitle ?: "")
             put("category", q.category)
@@ -96,8 +95,7 @@ object QuestionSerializer {
             difficultyLevel = obj.optInt("difficultyLevel", obj.optInt("qNumber", 1)),
             difficultyTitle = obj.optString("difficultyTitle", "Standard"),
             timeLimitSeconds = timeLimit,
-            prizePoints = obj.optLong("prizePoints", 1000L),
-            prizeFormatted = obj.optString("prizeFormatted", "₹1,000"),
+            points = obj.optLong("points", 1000L),
             isCheckpoint = obj.optBoolean("isCheckpoint", false),
             checkpointTitle = if (obj.has("checkpointTitle") && obj.getString("checkpointTitle").isNotBlank()) obj.getString("checkpointTitle") else null,
             category = obj.optString("category", "Logic"),

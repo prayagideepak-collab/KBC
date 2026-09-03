@@ -166,7 +166,7 @@ fun HistoryScreen(
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = if (peakPrize >= 10000000) "₹${peakPrize / 10000000} Cr" else "₹$peakPrize",
+                            text = if (peakPrize >= 10000000) "${peakPrize / 1000}k POINTS" else "$peakPrize POINTS",
                             fontWeight = FontWeight.Black,
                             fontSize = 20.sp,
                             color = GoldPrimary
@@ -244,7 +244,7 @@ fun HistoryScreen(
                                 }
 
                                 Text(
-                                    text = if (item.finalPrize >= 10000000) "₹${item.finalPrize / 10000000} Cr" else "₹${item.finalPrize}",
+                                    text = if (item.finalPrize >= 10000000) "${item.finalPrize / 1000}k POINTS" else "${item.finalPrize} POINTS",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
                                     color = GoldPrimary

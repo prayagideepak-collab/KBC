@@ -446,8 +446,8 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    RuleRow("17 Tiers", if (isHi) "₹1,000 से ₹7 करोड़ तक का शुद्ध तार्किक सफर" else "Progressive ladder from ₹1K to ₹7 Crore")
-                    RuleRow("Safe Padaav", if (isHi) "Q5 (₹10K), Q10 (₹3.2L), Q16 (₹3Cr) सुरक्षित पड़ाव" else "Checkpoints secure earned cash at Q5, Q10, Q16")
+                    RuleRow("17 Tiers", if (isHi) "1,000 से 7,00,00,000 पॉइंट्स तक का सफर" else "Progressive ladder from 1K to 70M Points")
+                    RuleRow("Safe Padaav", if (isHi) "Q5 (10K), Q10 (3.2L), Q16 (30M) सुरक्षित पड़ाव" else "Checkpoints secure earned points at Q5, Q10, Q16")
                     RuleRow("100% Logic", if (isHi) "हर सवाल में सुराग मौजूद हैं; कोई अनुमान नहीं" else "Every question is logically solvable from clues")
                     RuleRow("4 Lifelines", if (isHi) "50-50, तर्क गुरु 🤖, Flip 🔄, और Power Paplu ⚡" else "50-50, AI Expert, Flip Question, Power Paplu")
                 }

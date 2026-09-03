@@ -272,9 +272,9 @@ class TarkRepository(
         val entity = GameHistoryEntity(
             sessionId = result.sessionId,
             finalPrize = result.totalPointsWon,
-            grossPrize = result.grossWinningAmount,
-            totalDeduction = result.totalNegativeDeduction,
-            incorrectQuestionsJson = result.incorrectQuestionDeductionsJson,
+            grossPrize = result.totalPointsWon,
+            totalDeduction = 0L,
+            incorrectQuestionsJson = "[]",
             highestQuestionReached = result.highestQuestionReached,
             outcomeStatus = result.reasonEnded,
             correctAnswersCount = result.correctCount,

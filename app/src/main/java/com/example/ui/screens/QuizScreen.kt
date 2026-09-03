@@ -152,7 +152,7 @@ fun QuizScreen(
             // ==========================================
             QuizHeaderHud(
                 currentQNumber = state.currentQNumber,
-                prizeFormatted = question.prizeFormatted,
+                points = question.points,
                 isCheckpoint = question.isCheckpoint,
                 checkpointTitle = question.checkpointTitle,
                 timeRemaining = state.timeRemainingSeconds,
@@ -513,8 +513,8 @@ fun QuizScreen(
         if (state.showCheckpointFanfare != null) {
             PadaavCelebrationOverlay(
                 currentQNumber = state.currentQNumber,
+                points = question.points,
                 checkpointTitle = state.showCheckpointFanfare ?: "सुरक्षित पड़ाव",
-                prizeFormatted = question.prizeFormatted,
                 isHindi = isHi,
                 onDismiss = { viewModel.dismissCheckpointFanfare() }
             )
@@ -646,7 +646,7 @@ fun QuizScreen(
 @Composable
 fun QuizHeaderHud(
     currentQNumber: Int,
-    prizeFormatted: String,
+    points: Long,
     isCheckpoint: Boolean,
     checkpointTitle: String?,
     timeRemaining: Int?,
@@ -736,7 +736,7 @@ fun QuizHeaderHud(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Q$currentQNumber / 17 • $prizeFormatted",
+                    text = "Q$currentQNumber / 17 • $points POINTS",
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = GoldGlow,
                         fontWeight = FontWeight.Bold,

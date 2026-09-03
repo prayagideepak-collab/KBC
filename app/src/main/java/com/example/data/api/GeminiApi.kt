@@ -359,7 +359,6 @@ class GeminiApiClient {
         return """
             You are the Chief Intelligence & Reasoning Engine of 'TarkShastra' - an adaptive KBC-style AI Logic Quiz where EVERY answer MUST be logically derivable from embedded clues, and pure guessing is impossible.
             
-            Target Question Number: Q$qNumber (Tier: ${tierMeta.difficultyTitle}, Prize: ${tierMeta.prizeFormatted})
             Target Category: $category
             $studentGuidance
             User Profile:
@@ -454,8 +453,7 @@ class GeminiApiClient {
                 qNumber = qNumber,
                 difficultyTitle = tierMeta.difficultyTitle,
                 timeLimitSeconds = tierMeta.timeLimitSeconds,
-                prizePoints = tierMeta.prizePoints,
-                prizeFormatted = tierMeta.prizeFormatted,
+                points = tierMeta.points,
                 isCheckpoint = tierMeta.isCheckpoint,
                 checkpointTitle = tierMeta.checkpointTitle,
                 category = category,
@@ -503,32 +501,31 @@ class GeminiApiClient {
         data class TierMeta(
             val difficultyTitle: String,
             val timeLimitSeconds: Int?,
-            val prizePoints: Long,
-            val prizeFormatted: String,
+            val points: Long,
             val isCheckpoint: Boolean,
             val checkpointTitle: String? = null
         )
 
         fun getTierDetails(qNumber: Int): TierMeta {
             return when (qNumber) {
-                1 -> TierMeta("Very Easy", 60, 5L, "₹5", false)
-                2 -> TierMeta("Very Easy", 60, 10L, "₹10", false)
-                3 -> TierMeta("Easy", 60, 20L, "₹20", false)
-                4 -> TierMeta("Easy", 60, 30L, "₹30", false)
-                5 -> TierMeta("Easy+", 60, 50L, "₹50", true, "पहला पड़ाव (1st Checkpoint)")
-                6 -> TierMeta("Medium", 120, 75L, "₹75", false)
-                7 -> TierMeta("Medium", 120, 100L, "₹100", false)
-                8 -> TierMeta("Medium+", 120, 150L, "₹150", false)
-                9 -> TierMeta("Medium+", 120, 200L, "₹200", false)
-                10 -> TierMeta("Hard", 120, 300L, "₹300", true, "दूसरा पड़ाव (2nd Checkpoint)")
-                11 -> TierMeta("Hard", null, 400L, "₹400", false)
-                12 -> TierMeta("Hard+", null, 500L, "₹500", false)
-                13 -> TierMeta("Very Hard", null, 600L, "₹600", false)
-                14 -> TierMeta("Very Hard", null, 700L, "₹700", false)
-                15 -> TierMeta("Expert", null, 800L, "₹800", false)
-                16 -> TierMeta("Expert+", null, 900L, "₹900", true, "तीसरा पड़ाव (3rd Checkpoint)")
-                17 -> TierMeta("Extreme Grandmaster", null, 1000L, "₹1,000", true, "अंतिम महा-तर्क (Final Crown)")
-                else -> TierMeta("Standard", 60, 5L, "₹5", false)
+                1 -> TierMeta("Very Easy", 60, 5L, false)
+                2 -> TierMeta("Very Easy", 60, 10L, false)
+                3 -> TierMeta("Easy", 60, 20L, false)
+                4 -> TierMeta("Easy", 60, 30L, false)
+                5 -> TierMeta("Easy+", 60, 50L, true, "पहला पड़ाव (1st Checkpoint)")
+                6 -> TierMeta("Medium", 120, 75L, false)
+                7 -> TierMeta("Medium", 120, 100L, false)
+                8 -> TierMeta("Medium+", 120, 150L, false)
+                9 -> TierMeta("Medium+", 120, 200L, false)
+                10 -> TierMeta("Hard", 120, 300L, true, "दूसरा पड़ाव (2nd Checkpoint)")
+                11 -> TierMeta("Hard", null, 400L, false)
+                12 -> TierMeta("Hard+", null, 500L, false)
+                13 -> TierMeta("Very Hard", null, 600L, false)
+                14 -> TierMeta("Very Hard", null, 700L, false)
+                15 -> TierMeta("Expert", null, 800L, false)
+                16 -> TierMeta("Expert+", null, 900L, true, "तीसरा पड़ाव (3rd Checkpoint)")
+                17 -> TierMeta("Extreme Grandmaster", null, 1000L, true, "अंतिम महा-तर्क (Final Crown)")
+                else -> TierMeta("Standard", 60, 5L, false)
             }
         }
     }

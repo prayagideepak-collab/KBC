@@ -37,8 +37,7 @@ data class QuestionItem(
     val difficultyLevel: Int = qNumber,   // 1 to 17
     val difficultyTitle: String,          // "Very Easy", "Easy+", "Medium", "Hard", "Expert", "Extreme"
     val timeLimitSeconds: Int?,           // 60, 120, or null (no limit)
-    val prizePoints: Long,                // 1,000 to 70,000,000
-    val prizeFormatted: String,           // "₹1,000", "₹10,000 (पहला पड़ाव)", "₹7 Crore (महा-तर्क)"
+    val points: Long,                     // 1,000 to 70,000,000
     val isCheckpoint: Boolean,            // Q5, Q10, Q16, Q17
     val checkpointTitle: String? = null,  // "पहला पड़ाव", "दूसरा पड़ाव", "तीसरा पड़ाव", "अंतिम महा-तर्क"
     val category: String,                 // "Spatial Vector", "Shadow Optics", "Syllogism", "Forensic", "Rhythm Meter", "Chronology Logic"
@@ -129,7 +128,7 @@ data class LifelineState(
 
 data class PadaavTier(
     val questionNumber: Int,
-    val prizeAmount: Long,
+    val points: Long,
     val labelHindi: String,
     val labelEnglish: String,
     val isCheckpoint: Boolean,
@@ -140,10 +139,7 @@ data class PadaavTier(
 data class GameSessionResult(
     val sessionId: String,
     val userName: String = "Challenger",
-    val totalPointsWon: Long, // Maps to finalWinningAmount
-    val grossWinningAmount: Long = 0,
-    val totalNegativeDeduction: Long = 0,
-    val incorrectQuestionDeductionsJson: String = "[]", // Store breakdown
+    val totalPointsWon: Long,
     val highestQuestionReached: Int,
     val isCompletedWon: Boolean,
     val guaranteedPointsSecured: Long,

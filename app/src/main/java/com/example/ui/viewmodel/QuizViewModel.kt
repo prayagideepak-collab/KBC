@@ -172,23 +172,11 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     private var currentSessionId = generateSessionId()
     private var currentSessionHintsUsed = 0
     private var currentSessionWrongCount = 0
-    private val currentSessionIncorrectDeductions = mutableListOf<com.example.data.api.IncorrectDeductionDto>()
     private var currentSessionTotalResponseSeconds = 0f
     private var currentQuestionPresentationTimestamp = 0L
     private var currentNarrationToken = 0L
     private val isFinalized = java.util.concurrent.atomic.AtomicBoolean(false)
     private val isLocking = java.util.concurrent.atomic.AtomicBoolean(false)
-
-    private fun getDebitAmount(qNumber: Int): Long {
-        return when (qNumber) {
-            1, 2 -> 50L
-            3, 4 -> 100L
-            5 -> 200L
-            in 6..10 -> 300L
-            in 11..15 -> 400L
-            else -> 500L
-        }
-    }
 
     private fun cleanupSessionResources() {
         stopTimer()
@@ -462,7 +450,6 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 currentSessionLifelinesUsed = 0
                 currentSessionHintsUsed = 0
                 currentSessionWrongCount = 0
-                currentSessionIncorrectDeductions.clear()
                 currentSessionTotalResponseSeconds = 0f
                 currentSessionStartTime = System.currentTimeMillis()
                 currentSessionCorrectCount = 0
@@ -890,7 +877,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
         if (isAnswerCorrect) {
             currentSessionCorrectCount++
-            val newWonPoints = state.question.prizePoints
+            val newWonPoints = state.question.points
             val isCheckpoint = state.question.isCheckpoint
             val newGuaranteed = if (isCheckpoint) newWonPoints else state.guaranteedSecuredPoints
 
@@ -952,12 +939,6 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             // A WRONG LOCKED ANSWER = GAME OVER
             currentSessionWrongCount++
-            currentSessionIncorrectDeductions.add(
-                com.example.data.api.IncorrectDeductionDto(
-                    state.currentQNumber, 
-                    getDebitAmount(state.currentQNumber)
-                )
-            )
             soundPlayer.playWrongAnswer()
             _uiState.value = state.copy(
                 phase = QuestionPhase.ANSWER_RESULT,
@@ -1069,12 +1050,6 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         val duration = (state.baseTimeSeconds ?: 60).toFloat()
         currentSessionTotalResponseSeconds += duration
         currentSessionWrongCount++
-        currentSessionIncorrectDeductions.add(
-            com.example.data.api.IncorrectDeductionDto(
-                state.currentQNumber, 
-                getDebitAmount(state.currentQNumber)
-            )
-        )
 
         val hadSelection = state.selectedOptionIndex != null
         val wasSelectedCorrect = hadSelection && state.selectedOptionIndex == state.question.correctAnswerIndex
@@ -1134,27 +1109,13 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         val accuracy = if (highestQ > 0) ((currentSessionCorrectCount.toFloat() / highestQ) * 100).toInt() else 0
         val profile = userProfile.value
 
-        val totalNegativeDeduction = if (reason == "DISQUALIFIED") 0L else currentSessionIncorrectDeductions.sumOf { it.debitAmount }
-        val grossAmount = if (reason == "DISQUALIFIED") 0L else wonPoints
-        val finalWinningAmount = if (reason == "DISQUALIFIED") 0L else maxOf(0L, grossAmount - totalNegativeDeduction)
+        val finalPoints = if (reason == "DISQUALIFIED") 0L else wonPoints
         val securedAmount = if (reason == "DISQUALIFIED") 0L else if (reason == "WRONG_ANSWER" || reason.startsWith("TIMEOUT")) wonPoints else wonPoints
-
-        val jsonDeductions = org.json.JSONArray().apply {
-            currentSessionIncorrectDeductions.forEach {
-                val obj = org.json.JSONObject()
-                obj.put("level", it.level)
-                obj.put("debitAmount", it.debitAmount)
-                put(obj)
-            }
-        }.toString()
 
         val result = GameSessionResult(
             sessionId = currentSessionId,
             userName = profile.name,
-            totalPointsWon = finalWinningAmount,
-            grossWinningAmount = grossAmount,
-            totalNegativeDeduction = totalNegativeDeduction,
-            incorrectQuestionDeductionsJson = jsonDeductions,
+            totalPointsWon = finalPoints,
             highestQuestionReached = highestQ,
             isCompletedWon = isGrandWin,
             guaranteedPointsSecured = securedAmount,
@@ -1176,16 +1137,13 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = QuizUiState.GameSummary(result, lastQ)
 
             // Payout Reporting - only if not disqualified and winning amount > 0
-            if (reason != "DISQUALIFIED" && !profile.upiId.isNullOrBlank() && finalWinningAmount > 0) {
+            if (reason != "DISQUALIFIED" && !profile.upiId.isNullOrBlank() && finalPoints > 0) {
                 val dto = com.example.data.api.PayoutReportDto(
                     userName = profile.name,
                     upiId = profile.upiId,
-                    grossWinningAmount = grossAmount,
+                    pointsWon = finalPoints,
                     correctAnswers = currentSessionCorrectCount,
                     incorrectAnswers = currentSessionWrongCount,
-                    negativeDeduction = totalNegativeDeduction,
-                    finalWinningAmount = finalWinningAmount,
-                    incorrectQuestionDeductions = currentSessionIncorrectDeductions.toList(),
                     resultId = currentSessionId
                 )
                 com.example.data.api.DefaultPayoutReportingService().reportPayout(dto)
@@ -1202,9 +1160,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                     speechNarrator.speakFinalResult(
                         correct = currentSessionCorrectCount,
                         incorrect = currentSessionWrongCount,
-                        gross = grossAmount,
-                        deduction = totalNegativeDeduction,
-                        finalAmount = finalWinningAmount,
+                        pointsWon = finalPoints,
                         language = profile.languageMode,
                         gender = profile.hostGender
                     )

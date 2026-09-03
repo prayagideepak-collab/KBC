@@ -113,7 +113,7 @@ fun DifficultyLevelIndicator(
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = tierMeta.prizeFormatted,
+                    text = "${tierMeta.points} POINTS",
                     color = GoldGlow,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold

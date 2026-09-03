@@ -5,7 +5,6 @@ import android.content.Context
 import android.view.WindowManager
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.example.data.api.IncorrectDeductionDto
 import com.example.data.db.TarkDatabase
 import com.example.data.model.GameSessionResult
 import com.example.data.model.QuestionItem
@@ -55,8 +54,7 @@ class KbcAuthoritativeGameRulesTest {
         qNumber = 3,
         difficultyTitle = "Beginner",
         timeLimitSeconds = 30,
-        prizePoints = 3000L,
-        prizeFormatted = "₹3,000",
+        points = 3000L,
         isCheckpoint = false,
         category = "Logic",
         questionHindi = "प्रश्न 3?",
@@ -85,8 +83,7 @@ class KbcAuthoritativeGameRulesTest {
         qNumber = 5,
         difficultyTitle = "Padaav 1",
         timeLimitSeconds = 30,
-        prizePoints = 10000L,
-        prizeFormatted = "₹10,000",
+        points = 10000L,
         isCheckpoint = true,
         checkpointTitle = "पहला पड़ाव (1st Padaav)",
         category = "Logic",
@@ -116,8 +113,7 @@ class KbcAuthoritativeGameRulesTest {
         qNumber = 7,
         difficultyTitle = "Intermediate",
         timeLimitSeconds = 45,
-        prizePoints = 40000L,
-        prizeFormatted = "₹40,000",
+        points = 40000L,
         isCheckpoint = false,
         category = "Logic",
         questionHindi = "प्रश्न 7?",
@@ -146,8 +142,7 @@ class KbcAuthoritativeGameRulesTest {
         qNumber = 10,
         difficultyTitle = "Padaav 2",
         timeLimitSeconds = 60,
-        prizePoints = 320000L,
-        prizeFormatted = "₹3,20,000",
+        points = 320000L,
         isCheckpoint = true,
         checkpointTitle = "दूसरा पड़ाव (2nd Padaav)",
         category = "Logic",
@@ -177,8 +172,7 @@ class KbcAuthoritativeGameRulesTest {
         qNumber = 12,
         difficultyTitle = "Advanced",
         timeLimitSeconds = null,
-        prizePoints = 1250000L,
-        prizeFormatted = "₹12,50,000",
+        points = 1250000L,
         isCheckpoint = false,
         category = "Logic",
         questionHindi = "प्रश्न 12?",
@@ -207,8 +201,7 @@ class KbcAuthoritativeGameRulesTest {
         qNumber = 17,
         difficultyTitle = "Jackpot",
         timeLimitSeconds = null,
-        prizePoints = 70000000L,
-        prizeFormatted = "₹7,00,00,000",
+        points = 70000000L,
         isCheckpoint = true,
         checkpointTitle = "महा-पड़ाव 7 करोड़",
         category = "Philosophy",
@@ -348,9 +341,6 @@ class KbcAuthoritativeGameRulesTest {
             sessionId = "TS-Q3-TEST",
             userName = "Candidate",
             totalPointsWon = finalWon,
-            grossWinningAmount = grossWon,
-            totalNegativeDeduction = deduction,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 3,
             isCompletedWon = false,
             guaranteedPointsSecured = 0L,
@@ -374,7 +364,7 @@ class KbcAuthoritativeGameRulesTest {
     // ==========================================
     @Test
     fun `TEST 4 - Q5 correct locked answer - secures Padaav 1 10000`() {
-        val wonPoints = sampleQuestionQ5.prizePoints
+        val wonPoints = sampleQuestionQ5.points
         val isCheckpoint = sampleQuestionQ5.isCheckpoint
         val guaranteedSecured = if (isCheckpoint) wonPoints else 0L
 
@@ -396,9 +386,6 @@ class KbcAuthoritativeGameRulesTest {
             sessionId = "TS-Q7-WRONG",
             userName = "Candidate",
             totalPointsWon = finalAmount,
-            grossWinningAmount = securedPadaav,
-            totalNegativeDeduction = deduction,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 7,
             isCompletedWon = false,
             guaranteedPointsSecured = securedPadaav,
@@ -422,7 +409,7 @@ class KbcAuthoritativeGameRulesTest {
     // ==========================================
     @Test
     fun `TEST 6 - Q10 correct locked answer - secures Padaav 2 320000`() {
-        val wonPoints = sampleQuestionQ10.prizePoints
+        val wonPoints = sampleQuestionQ10.points
         val isCheckpoint = sampleQuestionQ10.isCheckpoint
         val guaranteedSecured = if (isCheckpoint) wonPoints else 10000L
 
@@ -444,9 +431,6 @@ class KbcAuthoritativeGameRulesTest {
             sessionId = "TS-Q12-WRONG",
             userName = "Candidate",
             totalPointsWon = finalAmount,
-            grossWinningAmount = securedPadaav,
-            totalNegativeDeduction = deduction,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 12,
             isCompletedWon = false,
             guaranteedPointsSecured = securedPadaav,
@@ -478,9 +462,6 @@ class KbcAuthoritativeGameRulesTest {
             sessionId = "TS-Q17-WRONG",
             userName = "Candidate",
             totalPointsWon = finalAmount,
-            grossWinningAmount = securedPadaav,
-            totalNegativeDeduction = deduction,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 17,
             isCompletedWon = false,
             guaranteedPointsSecured = securedPadaav,
@@ -504,15 +485,12 @@ class KbcAuthoritativeGameRulesTest {
     // ==========================================
     @Test
     fun `TEST 9 - Q17 correct locked answer - 7 Crore win and Grand Champion`() {
-        val wonPoints = sampleQuestionQ17.prizePoints
+        val wonPoints = sampleQuestionQ17.points
         val isGrandWin = true
         val result = GameSessionResult(
             sessionId = "TS-Q17-CHAMPION",
             userName = "Candidate",
             totalPointsWon = wonPoints,
-            grossWinningAmount = wonPoints,
-            totalNegativeDeduction = 0L,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 17,
             isCompletedWon = isGrandWin,
             guaranteedPointsSecured = wonPoints,
@@ -544,9 +522,6 @@ class KbcAuthoritativeGameRulesTest {
             sessionId = "TS-TIMEOUT-NONE",
             userName = "Candidate",
             totalPointsWon = maxOf(0L, securedPadaav - deduction),
-            grossWinningAmount = securedPadaav,
-            totalNegativeDeduction = deduction,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 6,
             isCompletedWon = false,
             guaranteedPointsSecured = securedPadaav,
@@ -580,9 +555,6 @@ class KbcAuthoritativeGameRulesTest {
             sessionId = "TS-TIMEOUT-CORRECT-NOTLOCKED",
             userName = "Candidate",
             totalPointsWon = maxOf(0L, securedPadaav - deduction),
-            grossWinningAmount = securedPadaav,
-            totalNegativeDeduction = deduction,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 6,
             isCompletedWon = false,
             guaranteedPointsSecured = securedPadaav,
@@ -615,9 +587,6 @@ class KbcAuthoritativeGameRulesTest {
             sessionId = "TS-TIMEOUT-INCORRECT-NOTLOCKED",
             userName = "Candidate",
             totalPointsWon = maxOf(0L, securedPadaav - deduction),
-            grossWinningAmount = securedPadaav,
-            totalNegativeDeduction = deduction,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 6,
             isCompletedWon = false,
             guaranteedPointsSecured = securedPadaav,
@@ -647,9 +616,6 @@ class KbcAuthoritativeGameRulesTest {
             sessionId = "TS-QUIT-Q8",
             userName = "Candidate",
             totalPointsWon = currentPointsWon,
-            grossWinningAmount = currentPointsWon,
-            totalNegativeDeduction = deduction,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 8,
             isCompletedWon = false,
             guaranteedPointsSecured = 10000L,
@@ -664,8 +630,6 @@ class KbcAuthoritativeGameRulesTest {
 
         assertEquals("QUIT", result.reasonEnded)
         assertEquals(40000L, result.totalPointsWon)
-        assertEquals(40000L, result.grossWinningAmount)
-        assertEquals(0L, result.totalNegativeDeduction)
     }
 
     // ==========================================
@@ -678,9 +642,6 @@ class KbcAuthoritativeGameRulesTest {
             sessionId = "TS-HOME-EXIT",
             userName = "Candidate",
             totalPointsWon = currentPointsWon,
-            grossWinningAmount = currentPointsWon,
-            totalNegativeDeduction = 0L,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 5,
             isCompletedWon = false,
             guaranteedPointsSecured = currentPointsWon,
@@ -733,18 +694,13 @@ class KbcAuthoritativeGameRulesTest {
     @Test
     fun `TEST 17 - Anti-cheating disqualification - 0 payout, void accounting, game disqualified`() {
         val reason = "DISQUALIFIED"
-        val grossAmount = if (reason == "DISQUALIFIED") 0L else 320000L
-        val totalNegativeDeduction = if (reason == "DISQUALIFIED") 0L else 500L
-        val finalWinningAmount = if (reason == "DISQUALIFIED") 0L else maxOf(0L, grossAmount - totalNegativeDeduction)
+        val finalWinningAmount = if (reason == "DISQUALIFIED") 0L else 320000L
         val securedAmount = if (reason == "DISQUALIFIED") 0L else 320000L
 
         val result = GameSessionResult(
             sessionId = "TS-DISQUALIFIED-TEST",
             userName = "Cheater",
             totalPointsWon = finalWinningAmount,
-            grossWinningAmount = grossAmount,
-            totalNegativeDeduction = totalNegativeDeduction,
-            incorrectQuestionDeductionsJson = "[]",
             highestQuestionReached = 11,
             isCompletedWon = false,
             guaranteedPointsSecured = securedAmount,
@@ -759,8 +715,6 @@ class KbcAuthoritativeGameRulesTest {
 
         assertEquals("DISQUALIFIED", result.reasonEnded)
         assertEquals(0L, result.totalPointsWon)
-        assertEquals(0L, result.grossWinningAmount)
         assertEquals(0L, result.guaranteedPointsSecured)
-        assertEquals(0L, result.totalNegativeDeduction)
     }
 }

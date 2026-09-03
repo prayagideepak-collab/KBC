@@ -192,7 +192,7 @@ fun LadderDrawer(
                                 Column {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
-                                            text = tier.prizeFormatted,
+                                            text = "${tier.points} POINTS",
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontWeight = if (isCurrent || isCheckpoint) FontWeight.Bold else FontWeight.Normal,
                                                 color = if (isCurrent) GoldGlow else if (isCheckpoint) Color.White else TextPrimary

@@ -250,14 +250,13 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
     fun speakFinalResult(
         correct: Int,
         incorrect: Int,
-        gross: Long,
-        deduction: Long,
-        finalAmount: Long,
+        pointsWon: Long,
         language: String,
         gender: String
     ) {
         if (!isReady || tts == null) return
         stop()
+
         try {
             val locale = getLocaleForMode(language)
             tts?.language = locale
@@ -266,9 +265,9 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
 
             val isHindi = language.equals("HINDI", ignoreCase = true)
             val text = if (isHindi) {
-                "आपने $correct सवालों के सही जवाब दिए, और $incorrect के गलत। आपका कुल पुरस्कार है $gross रुपये। गलत जवाबों के लिए $deduction रुपये की कटौती की गई है। आपका अंतिम पुरस्कार है $finalAmount रुपये।"
+                "आपने $correct सवालों के सही जवाब दिए, और $incorrect के गलत। आपके कुल पॉइंट्स हैं $pointsWon।"
             } else {
-                "You answered $correct questions correctly, and $incorrect incorrectly. Your gross winning amount is $gross rupees. A deduction of $deduction rupees has been applied for incorrect answers. Your final winning amount is $finalAmount rupees."
+                "You answered $correct questions correctly, and $incorrect incorrectly. Your total points are $pointsWon."
             }
 
             val utteranceId = "Final_Result_${System.currentTimeMillis()}"

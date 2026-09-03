@@ -78,8 +78,8 @@ import com.example.ui.theme.TextSecondary
 @Composable
 fun PadaavCelebrationOverlay(
     currentQNumber: Int,
+    points: Long,
     checkpointTitle: String,
-    prizeFormatted: String,
     isHindi: Boolean,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
@@ -229,13 +229,13 @@ fun PadaavCelebrationOverlay(
                             Spacer(modifier = Modifier.width(8.dp))
                             Column(horizontalAlignment = Alignment.Start) {
                                 Text(
-                                    text = if (isHindi) "सुरक्षित पुरस्कार राशि (Guaranteed Amount)" else "Guaranteed Safety Net",
+                                    text = if (isHindi) "सुरक्षित पॉइंट्स (Guaranteed Points)" else "Guaranteed Points Safety Net",
                                     fontSize = 11.sp,
                                     color = TextSecondary,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
-                                    text = prizeFormatted,
+                                    text = "$points POINTS",
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = SuccessGreen
@@ -248,9 +248,9 @@ fun PadaavCelebrationOverlay(
 
                     Text(
                         text = if (isHindi)
-                            "बधाई! इस पड़ाव को पार करने पर यह धनराशि 100% सुरक्षित हो जाती है। आगे किसी गलत उत्तर पर भी आपकी राशि इस न्यूनतम स्तर से नीचे नहीं गिरेगी।"
+                            "बधाई! इस पड़ाव को पार करने पर ये पॉइंट्स 100% सुरक्षित हो जाते हैं। आगे किसी गलत उत्तर पर भी आपके पॉइंट्स इस न्यूनतम स्तर से नीचे नहीं गिरेंगे।"
                         else
-                            "Congratulations! Crossing this checkpoint guarantees that your prize cannot fall below this safety threshold.",
+                            "Congratulations! Crossing this checkpoint guarantees that your points won cannot fall below this safety threshold.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = TextPrimary,
                             textAlign = TextAlign.Center,

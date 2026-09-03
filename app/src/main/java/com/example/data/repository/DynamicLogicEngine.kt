@@ -24,31 +24,30 @@ object DynamicLogicEngine {
     data class TierInfo(
         val difficultyTitle: String,
         val timeLimitSeconds: Int?,
-        val prizePoints: Long,
-        val prizeFormatted: String,
+        val points: Long,
         val isCheckpoint: Boolean,
         val checkpointTitle: String? = null
     )
 
     fun getTierMeta(qNumber: Int): TierInfo = when (qNumber) {
-        1 -> TierInfo("Very Easy", 60, 10L, "₹10", false)
-        2 -> TierInfo("Very Easy", 60, 15L, "₹15", false)
-        3 -> TierInfo("Easy", 60, 20L, "₹20", false)
-        4 -> TierInfo("Easy", 60, 25L, "₹25", false)
-        5 -> TierInfo("Easy+", 60, 30L, "₹30", true, "पहला पड़ाव (1st Checkpoint)")
-        6 -> TierInfo("Medium", 120, 40L, "₹40", false)
-        7 -> TierInfo("Medium", 120, 50L, "₹50", false)
-        8 -> TierInfo("Medium+", 120, 60L, "₹60", false)
-        9 -> TierInfo("Medium+", 120, 70L, "₹70", false)
-        10 -> TierInfo("Hard", 120, 180L, "₹180", true, "दूसरा पड़ाव (2nd Checkpoint)")
-        11 -> TierInfo("Hard", null, 50L, "₹50", false)
-        12 -> TierInfo("Hard+", null, 60L, "₹60", false)
-        13 -> TierInfo("Very Hard", null, 70L, "₹70", false)
-        14 -> TierInfo("Very Hard", null, 80L, "₹80", false)
-        15 -> TierInfo("Expert", null, 90L, "₹90", false)
-        16 -> TierInfo("Expert+", null, 100L, "₹100", true, "तीसरा पड़ाव (3rd Checkpoint)")
-        17 -> TierInfo("Extreme Grandmaster", null, 50L, "₹50", true, "अंतिम महा-तर्क (Final Crown)")
-        else -> TierInfo("Standard", 60, 10L, "₹10", false)
+        1 -> TierInfo("Very Easy", 60, 10L, false)
+        2 -> TierInfo("Very Easy", 60, 15L, false)
+        3 -> TierInfo("Easy", 60, 20L, false)
+        4 -> TierInfo("Easy", 60, 25L, false)
+        5 -> TierInfo("Easy+", 60, 30L, true, "पहला पड़ाव (1st Checkpoint)")
+        6 -> TierInfo("Medium", 120, 40L, false)
+        7 -> TierInfo("Medium", 120, 50L, false)
+        8 -> TierInfo("Medium+", 120, 60L, false)
+        9 -> TierInfo("Medium+", 120, 70L, false)
+        10 -> TierInfo("Hard", 120, 180L, true, "दूसरा पड़ाव (2nd Checkpoint)")
+        11 -> TierInfo("Hard", null, 50L, false)
+        12 -> TierInfo("Hard+", null, 60L, false)
+        13 -> TierInfo("Very Hard", null, 70L, false)
+        14 -> TierInfo("Very Hard", null, 80L, false)
+        15 -> TierInfo("Expert", null, 90L, false)
+        16 -> TierInfo("Expert+", null, 100L, true, "तीसरा पड़ाव (3rd Checkpoint)")
+        17 -> TierInfo("Extreme Grandmaster", null, 50L, true, "अंतिम महा-तर्क (Final Crown)")
+        else -> TierInfo("Standard", 60, 10L, false)
     }
 
     data class GeneratorDescriptor(
@@ -423,8 +422,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Spatial Coordinate Vector",
@@ -483,8 +481,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Transitive Weight & Balance Deduction",
@@ -538,8 +535,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Clock Geometry & Cyclic Angle",
@@ -601,8 +597,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Ecological Energy Flow & Food Web",
@@ -677,8 +672,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Calendar Modulo & Day Cycles",
@@ -731,8 +725,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Mathematical Sequence & Pattern",
@@ -794,8 +787,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Regional Geography & Landmark Deduction",
@@ -849,8 +841,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Cryptographic Letter-Shift Cipher",
@@ -902,8 +893,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Constraint Optimization & River Crossing",
@@ -957,8 +947,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Set Theory & 3-Circle Venn Logic",
@@ -1014,8 +1003,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Kinematics & Relative Speed",
@@ -1069,8 +1057,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Age-Algebra Linear System",
@@ -1121,8 +1108,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Quantitative Data Interpretation",
@@ -1174,8 +1160,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Spatial Coordinate Vector & Pythagoras",
@@ -1226,8 +1211,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Linear & Circular Seating Logic",
@@ -1280,8 +1264,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Pigeonhole Principle (Dirichlet)",
@@ -1335,8 +1318,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Solar Angle & Shadow Trigonometry",
@@ -1392,8 +1374,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "3x3 Matrix Grid Transformation",
@@ -1441,8 +1422,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Alphametic Cryptarithm",
@@ -1501,8 +1481,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Forensic Chronology & Alibi Invalidation",
@@ -1556,8 +1535,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Probability & Risk Trees",
@@ -1618,8 +1596,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Knights & Knaves (Smullyan Island)",
@@ -1680,8 +1657,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Grand Syllogistic Deduction (महा-तर्क)",
@@ -1740,8 +1716,7 @@ object DynamicLogicEngine {
             qNumber = qNumber,
             difficultyTitle = meta.difficultyTitle,
             timeLimitSeconds = meta.timeLimitSeconds,
-            prizePoints = meta.prizePoints,
-            prizeFormatted = meta.prizeFormatted,
+            points = meta.points,
             isCheckpoint = meta.isCheckpoint,
             checkpointTitle = meta.checkpointTitle,
             category = "Game Theory & Dominant Strategy",

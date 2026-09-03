@@ -7,18 +7,10 @@ import kotlinx.coroutines.withContext
 data class PayoutReportDto(
     val userName: String,
     val upiId: String,
-    val grossWinningAmount: Long,
+    val pointsWon: Long,
     val correctAnswers: Int,
     val incorrectAnswers: Int,
-    val negativeDeduction: Long,
-    val finalWinningAmount: Long,
-    val incorrectQuestionDeductions: List<IncorrectDeductionDto>,
     val resultId: String
-)
-
-data class IncorrectDeductionDto(
-    val level: Int,
-    val debitAmount: Long
 )
 
 interface PayoutReportingService {
@@ -35,9 +27,9 @@ class DefaultPayoutReportingService : PayoutReportingService {
                 return@withContext false
             }
 
-            // Zero-floor check: finalWinningAmount must never be negative
-            if (payload.finalWinningAmount < 0) {
-                Log.e("PayoutReporting", "Negative final winning amount detected. Aborting report.")
+            // Zero-floor check: pointsWon must never be negative
+            if (payload.pointsWon < 0) {
+                Log.e("PayoutReporting", "Negative points won detected. Aborting report.")
                 return@withContext false
             }
 
