@@ -97,6 +97,10 @@ class SoundEffectsPlayer {
         tensionMusicJob = null
     }
 
+    fun stopAllMusic() {
+        stopTimerPressureMusic()
+    }
+
     /**
      * Starts the intellectual suspense & deep thinking ambient music for the Unlimited Phase (Q11-Q17).
      * Generates a slow, mystical harmonic drone pulse reflecting cognitive contemplation without countdown ticks.

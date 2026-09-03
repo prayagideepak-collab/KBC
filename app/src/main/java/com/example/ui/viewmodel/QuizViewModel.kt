@@ -176,6 +176,8 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     private var currentSessionTotalResponseSeconds = 0f
     private var currentQuestionPresentationTimestamp = 0L
     private var currentNarrationToken = 0L
+    private val isFinalized = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val isLocking = java.util.concurrent.atomic.AtomicBoolean(false)
 
     private fun getDebitAmount(qNumber: Int): Long {
         return when (qNumber) {
@@ -203,6 +205,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch(Dispatchers.IO) {
                 try {
                     repository.invalidateSessionBank(oldSid)
+                    repository.invalidateAllSessionBanks()
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -363,8 +366,8 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                                 }
                                 speechNarrator.speakQuestionBounded(msg, lang, gender) {
                                     finishGame(
-                                        wonPoints = currentState.guaranteedSecuredPoints,
-                                        highestQ = currentState.currentQNumber - 1,
+                                        wonPoints = 0L,
+                                        highestQ = currentState.currentQNumber,
                                         isGrandWin = false,
                                         reason = "DISQUALIFIED",
                                         lastQ = currentState.question
@@ -450,6 +453,8 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 android.util.Log.d("TarkShastra", "PROFILE_VALIDATED for game start")
                 cleanupSessionResources()
                 stopIdentityMonitoring()
+                isFinalized.set(false)
+                isLocking.set(false)
                 flippedQuestionIds.clear()
                 currentSessionId = generateSessionId()
                 android.util.Log.d("TarkShastra", "SESSION_CREATED: sessionId=$currentSessionId")
@@ -520,6 +525,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         isFlipReplacement: Boolean = false
     ) {
         stopTimer()
+        isLocking.set(false)
         currentQuestionPresentationTimestamp = System.currentTimeMillis()
 
         val question = sessionLadder[targetQNum] ?: run {
@@ -537,7 +543,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             phase = QuestionPhase.QUESTION_READING,
             timerMode = if (isTimed) TimerMode.TIMED else TimerMode.UNLIMITED_ELAPSED,
             elapsedThinkingSeconds = 0,
-            isOptionsVisible = false,
+            isOptionsVisible = true,
             selectedOptionIndex = null,
             lockedOptionIndex = null,
             isLockedIn = false,
@@ -578,7 +584,12 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         } else {
-            transitionToAnswerActive(targetQNum, allocatedTime, isTimed)
+            viewModelScope.launch {
+                delay(600)
+                if (currentSessionId == sessionId && currentNarrationToken == token) {
+                    transitionToAnswerActive(targetQNum, allocatedTime, isTimed)
+                }
+            }
         }
     }
 
@@ -678,21 +689,39 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         if (state is QuizUiState.InGame && state.lifelineState.isHintAvailable && !state.lifelineState.isHintUsedInCurrentQ && state.phase == QuestionPhase.ANSWER_ACTIVE) {
             currentSessionHintsUsed++
             
-            // Generate hint text
+            // Generate hint text from available clues, hint, and deduction paths
             val langMode = languageMode.value
             val hintText = when (langMode) {
                 "ENGLISH" -> {
-                    if (state.question.hintEnglish.isNotBlank()) state.question.hintEnglish
-                    else state.question.cluesEnglish.firstOrNull() ?: "Analyze the deductive constraints and intermediate relations."
+                    when {
+                        state.question.hintEnglish.isNotBlank() -> state.question.hintEnglish
+                        state.question.cluesEnglish.isNotEmpty() -> state.question.cluesEnglish.joinToString("\n• ", prefix = "• ")
+                        state.question.deductionPathEnglish.isNotBlank() -> state.question.deductionPathEnglish
+                        else -> "Analyze the deductive constraints and intermediate relations."
+                    }
                 }
                 "BILINGUAL" -> {
-                    val h = if (state.question.hintHindi.isNotBlank()) state.question.hintHindi else state.question.cluesHindi.firstOrNull() ?: "तार्किक बाधाओं का परीक्षण करें।"
-                    val e = if (state.question.hintEnglish.isNotBlank()) state.question.hintEnglish else state.question.cluesEnglish.firstOrNull() ?: "Analyze deductive constraints."
-                    "$h\n$e"
+                    val h = when {
+                        state.question.hintHindi.isNotBlank() -> state.question.hintHindi
+                        state.question.cluesHindi.isNotEmpty() -> state.question.cluesHindi.joinToString("\n• ", prefix = "• ")
+                        state.question.deductionPathHindi.isNotBlank() -> state.question.deductionPathHindi
+                        else -> "तार्किक बाधाओं का परीक्षण करें।"
+                    }
+                    val e = when {
+                        state.question.hintEnglish.isNotBlank() -> state.question.hintEnglish
+                        state.question.cluesEnglish.isNotEmpty() -> state.question.cluesEnglish.joinToString("\n• ", prefix = "• ")
+                        state.question.deductionPathEnglish.isNotBlank() -> state.question.deductionPathEnglish
+                        else -> "Analyze deductive constraints."
+                    }
+                    "$h\n\n$e"
                 }
                 else -> {
-                    if (state.question.hintHindi.isNotBlank()) state.question.hintHindi
-                    else state.question.cluesHindi.firstOrNull() ?: "तार्किक बाधाओं और मुख्य संबंधों का परीक्षण करें।"
+                    when {
+                        state.question.hintHindi.isNotBlank() -> state.question.hintHindi
+                        state.question.cluesHindi.isNotEmpty() -> state.question.cluesHindi.joinToString("\n• ", prefix = "• ")
+                        state.question.deductionPathHindi.isNotBlank() -> state.question.deductionPathHindi
+                        else -> "तार्किक बाधाओं और मुख्य संबंधों का परीक्षण करें।"
+                    }
                 }
             }
 
@@ -711,24 +740,31 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             )
             soundPlayer.playLifelineExpert()
 
-            // Disappear after 5 seconds
+            // Auto-dismiss after 6 seconds if not manually dismissed
             hintJob?.cancel()
             hintJob = viewModelScope.launch {
-                delay(5000)
-                val currentState = _uiState.value
-                if (currentState is QuizUiState.InGame && currentState.isHintLifelineActive) {
-                    _uiState.value = currentState.copy(
-                        isHintLifelineActive = false,
-                        activeHintContent = null,
-                        isTimerRunning = currentState.timerMode == TimerMode.TIMED
-                    )
-                    // Resume timer
-                    if (currentState.timerMode == TimerMode.TIMED && timeRemaining != null) {
-                        startTimer(timeRemaining)
-                    } else if (currentState.timerMode == TimerMode.UNLIMITED_ELAPSED) {
-                        startUnlimitedThinkingTimer()
-                    }
-                }
+                delay(6000)
+                dismissHint()
+            }
+        }
+    }
+
+    fun dismissHint() {
+        hintJob?.cancel()
+        hintJob = null
+        val currentState = _uiState.value
+        if (currentState is QuizUiState.InGame && currentState.isHintLifelineActive) {
+            val timeRemaining = currentState.timeRemainingSeconds
+            _uiState.value = currentState.copy(
+                isHintLifelineActive = false,
+                activeHintContent = null,
+                isTimerRunning = currentState.timerMode == TimerMode.TIMED
+            )
+            // Resume timer
+            if (currentState.timerMode == TimerMode.TIMED && timeRemaining != null) {
+                startTimer(timeRemaining)
+            } else if (currentState.timerMode == TimerMode.UNLIMITED_ELAPSED) {
+                startUnlimitedThinkingTimer()
             }
         }
     }
@@ -794,7 +830,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun selectOption(index: Int) {
         val state = _uiState.value
-        if (state !is QuizUiState.InGame) return
+        if (state !is QuizUiState.InGame || isFinalized.get() || isLocking.get()) return
 
         // IMMUTABILITY & ANTI-CHEAT GUARD:
         if (state.phase != QuestionPhase.ANSWER_ACTIVE || state.isLockedIn || state.lockedOptionIndex != null) {
@@ -821,10 +857,14 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun lockInAnswer() {
         val state = _uiState.value
-        if (state !is QuizUiState.InGame) return
+        if (state !is QuizUiState.InGame || isFinalized.get()) return
 
-        // Anti-cheat guard: must be in ACTIVE_CHOICE with an option selected and not already locked
+        // Anti-cheat guard: must be in ANSWER_ACTIVE with an option selected and not already locked
         if (state.phase != QuestionPhase.ANSWER_ACTIVE || state.selectedOptionIndex == null || state.isLockedIn) {
+            return
+        }
+
+        if (!isLocking.compareAndSet(false, true)) {
             return
         }
 
@@ -833,6 +873,14 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         // Stop all timers and tension music immediately
         stopTimer()
         speechNarrator.stop()
+
+        // Set authoritative locked state
+        _uiState.value = state.copy(
+            phase = QuestionPhase.ANSWER_LOCKED,
+            isLockedIn = true,
+            lockedOptionIndex = chosenIndex,
+            isTimerRunning = false
+        )
 
         // ⚡ <= 0.1 SEC REVEAL REQUIREMENT:
         // Validate answer against local precomputed question model with zero network/AI latency
@@ -902,6 +950,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         } else {
+            // A WRONG LOCKED ANSWER = GAME OVER
             currentSessionWrongCount++
             currentSessionIncorrectDeductions.add(
                 com.example.data.api.IncorrectDeductionDto(
@@ -920,41 +969,25 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 isTimerRunning = false
             )
 
-            val advanceLogic = {
+            val onGameOver: () -> Unit = {
                 viewModelScope.launch {
-                    delay(1000)
-                    if (state.currentQNumber >= 17) {
-                        finishGame(
-                            wonPoints = state.currentPointsWon,
-                            highestQ = 17,
-                            isGrandWin = false,
-                            reason = "COMPLETED_FINAL_QUESTION",
-                            lastQ = state.question
-                        )
-                    } else {
-                        advanceToNextQuestion(
-                            nextQNum = state.currentQNumber + 1,
-                            accumulatedPoints = state.currentPointsWon,
-                            guaranteedPoints = state.guaranteedSecuredPoints,
-                            lifelines = state.lifelineState.copy(
-                                is5050UsedInCurrentQ = false,
-                                isExpertUsedInCurrentQ = false,
-                                isHintUsedInCurrentQ = false
-                            )
-                        )
-                    }
+                    delay(1200)
+                    finishGame(
+                        wonPoints = state.guaranteedSecuredPoints,
+                        highestQ = state.currentQNumber,
+                        isGrandWin = false,
+                        reason = "WRONG_ANSWER",
+                        lastQ = state.question
+                    )
                 }
             }
 
             if (_isVoiceNarrationEnabled.value) {
                 speechNarrator.speakResultAnnouncement(isCorrect = false, languageMode.value, userProfile.value.hostGender) {
-                    advanceLogic()
+                    onGameOver()
                 }
             } else {
-                viewModelScope.launch {
-                    delay(1200)
-                    advanceLogic()
-                }
+                onGameOver()
             }
         }
     }
@@ -989,32 +1022,50 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     private fun validateSessionIntegrity(targetQNum: Int): Boolean {
         // Watchdog: Check if the question exists and belongs to the current session logic
         val question = sessionLadder[targetQNum] ?: return false
-        // Additional duplicate check logic can be added here if needed.
-        // For now, ensuring the question is present validates the bank integrity.
         return true
     }
 
     fun quitGame() {
         val state = _uiState.value
-        if (state is QuizUiState.InGame) {
-            stopTimer()
-            finishGame(
-                wonPoints = state.currentPointsWon,
-                highestQ = state.currentQNumber,
-                isGrandWin = false,
-                reason = "QUIT",
-                lastQ = state.question
-            )
-        }
+        if (state !is QuizUiState.InGame || isFinalized.get()) return
+        stopTimer()
+        speechNarrator.stop()
+        soundPlayer.stopAllMusic()
+        stopIdentityMonitoring()
+
+        finishGame(
+            wonPoints = state.currentPointsWon,
+            highestQ = state.currentQNumber,
+            isGrandWin = false,
+            reason = "QUIT",
+            lastQ = state.question
+        )
+    }
+
+    fun onHomeOrBackgroundExit() {
+        val state = _uiState.value
+        if (state !is QuizUiState.InGame || isFinalized.get()) return
+        stopTimer()
+        speechNarrator.stop()
+        soundPlayer.stopAllMusic()
+        stopIdentityMonitoring()
+
+        finishGame(
+            wonPoints = state.currentPointsWon,
+            highestQ = state.currentQNumber,
+            isGrandWin = false,
+            reason = "HOME_EXIT",
+            lastQ = state.question
+        )
     }
 
     private fun handleTimeExpired(state: QuizUiState.InGame) {
-        if (state.selectedOptionIndex != null) {
-            lockInAnswer()
-            return
-        }
+        if (isFinalized.get()) return
 
+        stopTimer()
+        speechNarrator.stop()
         soundPlayer.playWrongAnswer()
+
         val duration = (state.baseTimeSeconds ?: 60).toFloat()
         currentSessionTotalResponseSeconds += duration
         currentSessionWrongCount++
@@ -1025,65 +1076,69 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             )
         )
 
-        val chosenOrFallback = (state.question.correctAnswerIndex + 1) % 4
+        val hadSelection = state.selectedOptionIndex != null
+        val wasSelectedCorrect = hadSelection && state.selectedOptionIndex == state.question.correctAnswerIndex
+        val timeoutReason = when {
+            !hadSelection -> "TIMEOUT_NO_SELECTION"
+            wasSelectedCorrect -> "TIMEOUT_SELECTED_CORRECT"
+            else -> "TIMEOUT_SELECTED_INCORRECT"
+        }
+
+        // Reveal correct answer on screen without locking in as answered
         _uiState.value = state.copy(
             phase = QuestionPhase.ANSWER_RESULT,
             timerMode = TimerMode.RESULT,
             isAnswerRevealed = true,
             isCorrect = false,
-            lockedOptionIndex = chosenOrFallback,
-            isLockedIn = true,
+            lockedOptionIndex = null,
+            isLockedIn = false,
             isTimerRunning = false
         )
 
-        val advanceLogic = {
+        val onTimeoutDone: () -> Unit = {
             viewModelScope.launch {
-                delay(1000)
-                if (state.currentQNumber >= 17) {
-                    finishGame(
-                        wonPoints = state.currentPointsWon,
-                        highestQ = 17,
-                        isGrandWin = false,
-                        reason = "TIMEOUT_FINAL_QUESTION",
-                        lastQ = state.question
-                    )
-                } else {
-                    advanceToNextQuestion(
-                        nextQNum = state.currentQNumber + 1,
-                        accumulatedPoints = state.currentPointsWon,
-                        guaranteedPoints = state.guaranteedSecuredPoints,
-                        lifelines = state.lifelineState
-                    )
-                }
+                delay(1200)
+                finishGame(
+                    wonPoints = state.guaranteedSecuredPoints,
+                    highestQ = state.currentQNumber,
+                    isGrandWin = false,
+                    reason = timeoutReason,
+                    lastQ = state.question
+                )
             }
         }
 
         if (_isVoiceNarrationEnabled.value) {
-            speechNarrator.speakResultAnnouncement(isCorrect = false, languageMode.value, userProfile.value.hostGender) {
-                advanceLogic()
-            }
+            speechNarrator.speakSequential(
+                hindiText = "समय सीमा समाप्त! खेल यहीं समाप्त होता है।",
+                englishText = "Time has expired! Game over.",
+                onComplete = onTimeoutDone
+            )
         } else {
-            viewModelScope.launch {
-                delay(1500)
-                advanceLogic()
-            }
+            onTimeoutDone()
         }
     }
 
     private fun finishGame(
-        wonPoints: Long, // Represents gross winning amount now
+        wonPoints: Long,
         highestQ: Int,
         isGrandWin: Boolean,
         reason: String,
         lastQ: QuestionItem?
     ) {
+        if (!isFinalized.compareAndSet(false, true)) {
+            return
+        }
         cleanupSessionResources()
         val avgResponseTime = if (highestQ > 0) currentSessionTotalResponseSeconds / highestQ else 0f
         val accuracy = if (highestQ > 0) ((currentSessionCorrectCount.toFloat() / highestQ) * 100).toInt() else 0
         val profile = userProfile.value
 
-        val totalNegativeDeduction = currentSessionIncorrectDeductions.sumOf { it.debitAmount }
-        val finalWinningAmount = maxOf(0L, wonPoints - totalNegativeDeduction)
+        val totalNegativeDeduction = if (reason == "DISQUALIFIED") 0L else currentSessionIncorrectDeductions.sumOf { it.debitAmount }
+        val grossAmount = if (reason == "DISQUALIFIED") 0L else wonPoints
+        val finalWinningAmount = if (reason == "DISQUALIFIED") 0L else maxOf(0L, grossAmount - totalNegativeDeduction)
+        val securedAmount = if (reason == "DISQUALIFIED") 0L else if (reason == "WRONG_ANSWER" || reason.startsWith("TIMEOUT")) wonPoints else wonPoints
+
         val jsonDeductions = org.json.JSONArray().apply {
             currentSessionIncorrectDeductions.forEach {
                 val obj = org.json.JSONObject()
@@ -1096,13 +1151,13 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         val result = GameSessionResult(
             sessionId = currentSessionId,
             userName = profile.name,
-            totalPointsWon = finalWinningAmount, // Map totalPointsWon to final
-            grossWinningAmount = wonPoints,
+            totalPointsWon = finalWinningAmount,
+            grossWinningAmount = grossAmount,
             totalNegativeDeduction = totalNegativeDeduction,
             incorrectQuestionDeductionsJson = jsonDeductions,
             highestQuestionReached = highestQ,
             isCompletedWon = isGrandWin,
-            guaranteedPointsSecured = wonPoints,
+            guaranteedPointsSecured = securedAmount,
             reasonEnded = reason,
             questionsAnsweredCount = highestQ,
             correctCount = currentSessionCorrectCount,
@@ -1120,12 +1175,12 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             repository.saveGameSession(result)
             _uiState.value = QuizUiState.GameSummary(result, lastQ)
 
-            // Payout Reporting
-            if (!profile.upiId.isNullOrBlank()) {
+            // Payout Reporting - only if not disqualified and winning amount > 0
+            if (reason != "DISQUALIFIED" && !profile.upiId.isNullOrBlank() && finalWinningAmount > 0) {
                 val dto = com.example.data.api.PayoutReportDto(
                     userName = profile.name,
                     upiId = profile.upiId,
-                    grossWinningAmount = wonPoints,
+                    grossWinningAmount = grossAmount,
                     correctAnswers = currentSessionCorrectCount,
                     incorrectAnswers = currentSessionWrongCount,
                     negativeDeduction = totalNegativeDeduction,
@@ -1138,15 +1193,22 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
 
             // Speak Result
             if (_isVoiceNarrationEnabled.value) {
-                speechNarrator.speakFinalResult(
-                    correct = currentSessionCorrectCount,
-                    incorrect = currentSessionWrongCount,
-                    gross = wonPoints,
-                    deduction = totalNegativeDeduction,
-                    finalAmount = finalWinningAmount,
-                    language = profile.languageMode,
-                    gender = profile.hostGender
-                )
+                if (reason == "DISQUALIFIED") {
+                    speechNarrator.speakSequential(
+                        hindiText = "नियम उल्लंघन! आप खेल से अयोग्य घोषित किए गए हैं।",
+                        englishText = "Game disqualified due to rules violation."
+                    )
+                } else {
+                    speechNarrator.speakFinalResult(
+                        correct = currentSessionCorrectCount,
+                        incorrect = currentSessionWrongCount,
+                        gross = grossAmount,
+                        deduction = totalNegativeDeduction,
+                        finalAmount = finalWinningAmount,
+                        language = profile.languageMode,
+                        gender = profile.hostGender
+                    )
+                }
             }
         }
     }

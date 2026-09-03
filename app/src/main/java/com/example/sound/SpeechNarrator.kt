@@ -72,11 +72,21 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
 
             val utteranceId = "Tark_Q_${System.currentTimeMillis()}"
             val isCompleted = AtomicBoolean(false)
+            var watchdogJob: Job? = null
 
             val notifyComplete = {
                 if (isCompleted.compareAndSet(false, true)) {
+                    watchdogJob?.cancel()
                     scope.launch { onComplete?.invoke() }
                 }
+            }
+
+            // Reliable watchdog fallback in case TTS engine stalls
+            watchdogJob = scope.launch {
+                val words = text.split("\\s+".toRegex()).size
+                val maxAllowedMillis = (words * 250L + 2500L).coerceIn(3500L, 6000L)
+                delay(maxAllowedMillis)
+                notifyComplete()
             }
 
             tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
@@ -102,7 +112,7 @@ class SpeechNarrator(context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
-    private fun speakSequential(hindiText: String, englishText: String, onComplete: (() -> Unit)?) {
+    fun speakSequential(hindiText: String, englishText: String, onComplete: (() -> Unit)? = null) {
         val utteranceHi = "Tark_Hi_${System.currentTimeMillis()}"
         val utteranceEn = "Tark_En_${System.currentTimeMillis()}"
         val isCompleted = AtomicBoolean(false)

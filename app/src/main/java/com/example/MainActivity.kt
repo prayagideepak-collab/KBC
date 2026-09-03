@@ -51,10 +51,13 @@ import androidx.compose.ui.text.style.TextAlign
 
 class MainActivity : ComponentActivity() {
     private val quizViewModel: QuizViewModel by viewModels()
+    private var userLeftViaHome = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Ensure FLAG_SECURE is never active so screenshots and screen recordings work normally
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         setContent {
             TarkShastraTheme {
                 Scaffold(
@@ -69,6 +72,24 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        userLeftViaHome = true
+        quizViewModel.onHomeOrBackgroundExit()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations && userLeftViaHome) {
+            quizViewModel.onHomeOrBackgroundExit()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        userLeftViaHome = false
+    }
 }
 
 @Composable
@@ -77,8 +98,7 @@ fun TarkAppContent(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val isSecure = uiState is QuizUiState.InGame
-    LockScreenOrientationAndSecure(isSecure = isSecure)
+    EnsureWindowNotSecure()
 
     when (val state = uiState) {
         is QuizUiState.HomeScreen -> {
@@ -176,15 +196,11 @@ fun TarkAppContent(
 }
 
 @Composable
-fun LockScreenOrientationAndSecure(isSecure: Boolean) {
+fun EnsureWindowNotSecure() {
     val view = LocalView.current
-    DisposableEffect(isSecure) {
+    DisposableEffect(view) {
         val window = (view.context as? android.app.Activity)?.window
-        if (isSecure) {
-            window?.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        } else {
-            window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        }
+        window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         onDispose {
             window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }

@@ -335,6 +335,7 @@ fun BilingualOptionsGrid2x2(
     correctAnswerIndex: Int,
     isLockedIn: Boolean,
     preferredLanguage: String,
+    isEnabled: Boolean = true,
     onOptionSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -358,6 +359,7 @@ fun BilingualOptionsGrid2x2(
                 isCorrect = 0 == correctAnswerIndex,
                 isLockedIn = isLockedIn,
                 preferredLanguage = preferredLanguage,
+                isEnabled = isEnabled,
                 onClick = { onOptionSelected(0) },
                 modifier = Modifier.weight(1f)
             )
@@ -373,6 +375,7 @@ fun BilingualOptionsGrid2x2(
                 isCorrect = 1 == correctAnswerIndex,
                 isLockedIn = isLockedIn,
                 preferredLanguage = preferredLanguage,
+                isEnabled = isEnabled,
                 onClick = { onOptionSelected(1) },
                 modifier = Modifier.weight(1f)
             )
@@ -394,6 +397,7 @@ fun BilingualOptionsGrid2x2(
                 isCorrect = 2 == correctAnswerIndex,
                 isLockedIn = isLockedIn,
                 preferredLanguage = preferredLanguage,
+                isEnabled = isEnabled,
                 onClick = { onOptionSelected(2) },
                 modifier = Modifier.weight(1f)
             )
@@ -409,6 +413,7 @@ fun BilingualOptionsGrid2x2(
                 isCorrect = 3 == correctAnswerIndex,
                 isLockedIn = isLockedIn,
                 preferredLanguage = preferredLanguage,
+                isEnabled = isEnabled,
                 onClick = { onOptionSelected(3) },
                 modifier = Modifier.weight(1f)
             )
@@ -431,6 +436,7 @@ fun BilingualOptionGridCard(
     isCorrect: Boolean,
     isLockedIn: Boolean,
     preferredLanguage: String,
+    isEnabled: Boolean = true,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -440,6 +446,8 @@ fun BilingualOptionGridCard(
 
     val targetBgColor = when {
         isDiscarded -> NavyDeepest.copy(alpha = 0.35f)
+        isAnswerRevealed && isCorrect -> SuccessGreen.copy(alpha = 0.35f)
+        isAnswerRevealed && isSelected && !isCorrect -> AlertRed.copy(alpha = 0.35f)
         isSelected && isLockedIn -> GoldDark.copy(alpha = 0.45f)
         isSelected -> GoldPrimary.copy(alpha = 0.22f)
         else -> NavyCard
@@ -447,6 +455,8 @@ fun BilingualOptionGridCard(
 
     val targetBorderColor = when {
         isDiscarded -> NavyBorder.copy(alpha = 0.25f)
+        isAnswerRevealed && isCorrect -> SuccessGreen
+        isAnswerRevealed && isSelected && !isCorrect -> AlertRed
         isSelected -> GoldPrimary
         else -> NavyBorder.copy(alpha = 0.8f)
     }
@@ -457,7 +467,7 @@ fun BilingualOptionGridCard(
     Card(
         modifier = modifier
             .testTag("option_button_$index")
-            .clickable(enabled = !isDiscarded && !isLockedIn, onClick = onClick),
+            .clickable(enabled = isEnabled && !isDiscarded && !isLockedIn, onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = animatedBg),
         border = CardDefaults.outlinedCardBorder().copy(
@@ -482,6 +492,8 @@ fun BilingualOptionGridCard(
                         .background(
                             when {
                                 isDiscarded -> NavyDeepest
+                                isAnswerRevealed && isCorrect -> SuccessGreen
+                                isAnswerRevealed && isSelected && !isCorrect -> AlertRed
                                 isSelected -> GoldPrimary
                                 else -> NavyCardElevated
                             },
@@ -495,7 +507,7 @@ fun BilingualOptionGridCard(
                         fontSize = 12.sp,
                         color = when {
                             isDiscarded -> TextMuted
-                            isSelected -> NavyDeepest
+                            isSelected || (isAnswerRevealed && isCorrect) -> NavyDeepest
                             else -> GoldGlow
                         }
                     )

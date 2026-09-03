@@ -91,7 +91,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.components.BilingualCluesList
 import com.example.ui.components.BilingualOptionsGrid2x2
 import com.example.ui.components.BilingualQuestionCard
 import com.example.ui.components.DiagramCanvas
@@ -100,9 +99,6 @@ import com.example.ui.components.FiftyFiftyProofDialog
 import com.example.ui.components.LadderDrawer
 import com.example.ui.components.LifelineControls
 import com.example.ui.components.PadaavCelebrationOverlay
-import com.example.ui.components.ScratchpadDialog
-import com.example.ui.components.toArabicNumerals
-import com.example.ui.components.toDevanagariNumerals
 import com.example.ui.theme.AlertRed
 import com.example.ui.theme.CheckpointBronze
 import com.example.ui.theme.CheckpointGold
@@ -139,13 +135,6 @@ fun QuizScreen(
     val question = state.question
     var showQuitConfirmation by remember { mutableStateOf(false) }
     var showScratchpad by remember { mutableStateOf(false) }
-    var verifiedClues by remember(question.id) { mutableStateOf(setOf<Int>()) }
-
-    val questionText = if (isHi) question.questionHindi else question.questionEnglish
-    val clues = if (isHi) question.cluesHindi else question.cluesEnglish
-    val options = if (isHi) question.optionsHindi else question.optionsEnglish
-    val deductionProof = if (isHi) question.deductionPathHindi else question.deductionPathEnglish
-    val eliminationReasons = if (isHi) question.eliminationReasonsHindi else question.eliminationReasonsEnglish
 
     Box(
         modifier = modifier
@@ -399,99 +388,9 @@ fun QuizScreen(
                     preferredLanguage = language
                 )
 
-                // Bilingual Deductive Clues (Interactive checkmarks)
-                if (question.cluesHindi.isNotEmpty() || question.cluesEnglish.isNotEmpty()) {
-                    BilingualCluesList(
-                        cluesHindi = question.cluesHindi,
-                        cluesEnglish = question.cluesEnglish,
-                        verifiedClues = verifiedClues,
-                        preferredLanguage = language,
-                        onToggleVerify = { index ->
-                            verifiedClues = if (verifiedClues.contains(index)) verifiedClues - index else verifiedClues + index
-                        }
-                    )
-                }
-
-                // Visual / Diagram / Audio Canvas
-                DiagramCanvas(
-                    diagramType = question.diagramType,
-                    diagramData = question.diagramData,
-                    audioPatternType = question.audioPatternType,
-                    onPlayAudio = { viewModel.playQuestionAudio() }
-                )
-
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Read Only Session Card (Active during question TTS reading)
-                if (state.phase == QuestionPhase.QUESTION_READING) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .testTag("read_only_session_card"),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = NavyCardElevated),
-                        border = CardDefaults.outlinedCardBorder().copy(
-                            brush = Brush.horizontalGradient(
-                                listOf(GoldPrimary.copy(alpha = 0.8f), InfoCyan.copy(alpha = 0.6f))
-                            )
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                    contentDescription = null,
-                                    tint = GoldPrimary,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isHi) "🔊 प्रश्न पढ़ा जा रहा है..." else "🔊 Reading question aloud...",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        color = GoldGlow,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 17.sp
-                                    )
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Text(
-                                text = if (isHi)
-                                    "कृपया ध्यानपूर्वक सुनें। वाचन समाप्त होने पर विकल्प और उत्तर टाइमर स्वतः शुरू हो जाएंगे।"
-                                    else
-                                    "Please listen carefully. Options and answer timer will appear automatically once reading is complete.",
-                                textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = TextSecondary,
-                                    lineHeight = 18.sp
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            LinearProgressIndicator(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.8f)
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
-                                color = GoldPrimary,
-                                trackColor = NavyBorder,
-                            )
-                        }
-                    }
-                }
-
+                // Answer Options — Directly below the Question Card
                 AnimatedVisibility(
                     visible = state.isOptionsVisible,
                     enter = fadeIn(tween(400)) + expandVertically(tween(400))
@@ -506,6 +405,7 @@ fun QuizScreen(
                         correctAnswerIndex = question.correctAnswerIndex,
                         isLockedIn = state.isLockedIn,
                         preferredLanguage = language,
+                        isEnabled = state.phase == QuestionPhase.ANSWER_ACTIVE && !state.isLockedIn,
                         onOptionSelected = { index ->
                             if (state.phase == QuestionPhase.ANSWER_ACTIVE && !state.isLockedIn && !state.discardedOptionIndices.contains(index)) {
                                 viewModel.selectOption(index)
@@ -533,13 +433,13 @@ fun QuizScreen(
                     onUseFlipQuestion = { viewModel.useFlipQuestion() },
                     onUsePowerPaplu = { target -> viewModel.usePowerPaplu(target) },
                     onUseHint = { viewModel.useHintLifeline() },
-                    isEnabled = state.phase != QuestionPhase.QUESTION_READING
+                    isEnabled = state.phase == QuestionPhase.ANSWER_ACTIVE && !state.isLockedIn
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
                 // Lock-In Button ("ताला लगाएँ")
-                val canLockIn = state.selectedOptionIndex != null && !state.isLockedIn && state.phase != QuestionPhase.QUESTION_READING
+                val canLockIn = state.selectedOptionIndex != null && !state.isLockedIn && state.phase == QuestionPhase.ANSWER_ACTIVE
                 val isLocked = state.isLockedIn
 
                 Button(
@@ -686,10 +586,10 @@ fun QuizScreen(
             )
         }
 
-        // 7. Hint Dialog (Auto-dismisses in 5s)
+        // 7. Hint Dialog (Auto-dismisses in 6s or on manual dismiss)
         if (state.isHintLifelineActive && state.activeHintContent != null) {
             AlertDialog(
-                onDismissRequest = { /* Auto dismisses */ },
+                onDismissRequest = { viewModel.dismissHint() },
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Lightbulb,
@@ -708,15 +608,34 @@ fun QuizScreen(
                     )
                 },
                 text = {
-                    Text(
-                        text = state.activeHintContent,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = TextPrimary,
-                            lineHeight = 20.sp
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = state.activeHintContent,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = TextPrimary,
+                                lineHeight = 20.sp
+                            )
                         )
-                    )
+                        if (question.diagramType != "none" && question.diagramType.isNotBlank()) {
+                            DiagramCanvas(
+                                diagramType = question.diagramType,
+                                diagramData = question.diagramData,
+                                audioPatternType = question.audioPatternType,
+                                onPlayAudio = { viewModel.playQuestionAudio() }
+                            )
+                        }
+                    }
                 },
-                confirmButton = {},
+                confirmButton = {
+                    TextButton(onClick = { viewModel.dismissHint() }) {
+                        Text(if (isHi) "समझ गया (OK)" else "Got it", color = GoldPrimary, fontWeight = FontWeight.Bold)
+                    }
+                },
                 containerColor = NavyCardElevated,
                 shape = RoundedCornerShape(16.dp)
             )
